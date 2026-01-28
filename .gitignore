@@ -1,0 +1,20 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Investigation files (temporary)
+investigate_*.py
+get_distance.py
+jta_fare_scraper.py
+jta_full_flow.py
+index_page.js
+page_structure*.html
+screenshot_*.png
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
