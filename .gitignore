@@ -18,3 +18,7 @@ screenshot_*.png
 
 # OS
 .DS_Store
+
+# Database files (runtime data)
+data/*.db
+data/*.db-journal
