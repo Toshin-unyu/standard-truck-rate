@@ -3,6 +3,13 @@
 __pycache__/
 *.pyc
 
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
 # Investigation files (temporary)
 investigate_*.py
 get_distance.py
@@ -15,10 +22,36 @@ screenshot_*.png
 # IDE
 .idea/
 .vscode/
+*.swp
+*.swo
 
 # OS
 .DS_Store
+Thumbs.db
 
 # Database files (runtime data)
 data/*.db
 data/*.db-journal
+
+# 環境変数（パスワードなど）
+.env
+.env.local
+.env.*.local
+
+# ログ・一時ファイル
+*.log
+*.tmp
+*.bak
+
+# Claude Code関連（共有しない）
+CLAUDE.md
+SESSION.md
+REFERENCE.md
+docs/development/
+docs/archive/
+tests/archive/
+
+# サーバー固有ファイル
+*.pdf
+uploads/*
+!uploads/.gitkeep
