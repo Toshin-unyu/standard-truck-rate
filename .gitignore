@@ -38,6 +38,9 @@ data/*.db-journal
 .env.local
 .env.*.local
 
+# BASIC認証ファイル（セキュリティ）
+nginx/.htpasswd
+
 # ログ・一時ファイル
 *.log
 *.tmp
