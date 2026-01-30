@@ -10,6 +10,11 @@ __pycache__/
 *.so
 *.dylib
 
+# Node.js
+node_modules/
+package-lock.json
+package.json
+
 # Investigation files (temporary)
 investigate_*.py
 get_distance.py
