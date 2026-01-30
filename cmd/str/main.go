@@ -11,6 +11,8 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/y-suzuki/standard-truck-rate/internal/database"
 	"github.com/y-suzuki/standard-truck-rate/internal/handler"
+	"github.com/y-suzuki/standard-truck-rate/internal/model"
+	"github.com/y-suzuki/standard-truck-rate/internal/service"
 )
 
 // Template テンプレートレンダラー
@@ -111,13 +113,27 @@ func main() {
 	// Static files
 	e.Static("/static", "web/static")
 
+	// サービス作成
+	fareCalculator := createFareCalculatorService()
+
+	// ルートクライアント作成（モック or Google API）
+	var routeClient service.RouteClient
+	googleAPIKey := os.Getenv("GOOGLE_MAPS_API_KEY")
+	if googleAPIKey != "" {
+		routeClient = service.NewGoogleRoutesClient(googleAPIKey)
+	} else {
+		log.Println("GOOGLE_MAPS_API_KEYが未設定のため、モッククライアントを使用します")
+		routeClient = service.NewMockRoutesClient()
+	}
+
 	// ハンドラ
 	highwayHandler := handler.NewHighwayHandler(mainDB, cacheDB)
+	indexHandler := handler.NewIndexHandler()
+	calculateHandler := handler.NewCalculateHandler(fareCalculator)
+	routeHandler := handler.NewRouteHandler(cacheDB, routeClient)
 
 	// Routes
-	e.GET("/", func(c echo.Context) error {
-		return c.Render(200, "index.html", nil)
-	})
+	e.GET("/", indexHandler.Index)
 
 	e.GET("/health", func(c echo.Context) error {
 		return c.JSON(200, map[string]string{"status": "ok"})
@@ -127,6 +143,13 @@ func main() {
 	e.GET("/highway", func(c echo.Context) error {
 		return c.Render(200, "highway.html", nil)
 	})
+
+	// 運賃計算API
+	e.POST("/api/fare/calculate", calculateHandler.Calculate)
+	e.POST("/api/fare/calculate/json", calculateHandler.CalculateJSON)
+
+	// ルート情報API
+	e.GET("/api/route", routeHandler.GetRoute)
 
 	// 高速道路料金API
 	e.GET("/api/highway/ic/search", highwayHandler.SearchIC)
@@ -142,4 +165,69 @@ func main() {
 	if err := e.Start(":" + port); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// createFareCalculatorService 運賃計算サービスを作成
+func createFareCalculatorService() *service.FareCalculatorService {
+	// Supabase設定
+	supabaseURL := os.Getenv("SUPABASE_URL")
+	supabaseKey := os.Getenv("SUPABASE_ANON_KEY")
+
+	var distanceFareService *service.DistanceFareService
+
+	if supabaseURL != "" && supabaseKey != "" {
+		// Supabaseクライアントを使用
+		supabaseClient := service.NewJtaSupabaseClient(supabaseURL, supabaseKey)
+		adapter := service.NewJtaSupabaseClientAdapter(supabaseClient)
+		distanceFareService = service.NewDistanceFareService(adapter)
+	} else {
+		log.Println("SUPABASE_URL/SUPABASE_ANON_KEYが未設定のため、距離制運賃はモックを使用します")
+		distanceFareService = service.NewDistanceFareService(&mockFareGetter{})
+	}
+
+	// 時間制運賃（モック使用 - 本番環境ではJtaTimeFareRepositoryを使用）
+	timeFareService := service.NewTimeFareService(&mockTimeFareGetter{})
+
+	// 赤帽運賃
+	akabouFareService := service.NewAkabouFareService()
+
+	return service.NewFareCalculatorService(distanceFareService, timeFareService, akabouFareService)
+}
+
+// mockFareGetter 距離制運賃のモック
+type mockFareGetter struct{}
+
+func (m *mockFareGetter) GetDistanceFareYen(regionCode, vehicleCode, distanceKm int) (int, error) {
+	// モック: 基本的な運賃計算
+	baseFare := 10000 + distanceKm*100
+	return baseFare, nil
+}
+
+// mockTimeFareGetter 時間制運賃のモック
+type mockTimeFareGetter struct{}
+
+func (m *mockTimeFareGetter) GetBaseFare(regionCode, vehicleCode, hours int) (*model.JtaTimeBaseFare, error) {
+	return &model.JtaTimeBaseFare{
+		RegionCode:  regionCode,
+		VehicleCode: vehicleCode,
+		Hours:       hours,
+		FareYen:     15000,
+		BaseKm:      30,
+	}, nil
+}
+
+func (m *mockTimeFareGetter) GetSurcharge(regionCode, vehicleCode int, surchargeType string) (*model.JtaTimeSurcharge, error) {
+	fareYen := 0
+	switch surchargeType {
+	case "distance":
+		fareYen = 50
+	case "time":
+		fareYen = 500
+	}
+	return &model.JtaTimeSurcharge{
+		RegionCode:    regionCode,
+		VehicleCode:   vehicleCode,
+		SurchargeType: surchargeType,
+		FareYen:       fareYen,
+	}, nil
 }
