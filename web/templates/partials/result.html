@@ -53,7 +53,7 @@
             <div class="p-4 text-sm space-y-1 border-t">
                 <p>運輸局: {{regionName .TimeFareResult.RegionCode}}</p>
                 <p>車格: {{vehicleName .TimeFareResult.VehicleCode}}</p>
-                <p>時間制区分: {{.TimeFareResult.Hours}}時間制</p>
+                <p>時間制区分: {{.TimeFareResult.AppliedHours}}時間制</p>
                 <p>走行距離: {{.TimeFareResult.DistanceKm}}km（基礎キロ: {{.TimeFareResult.BaseKm}}km）</p>
                 <p>拘束時間: {{.TimeFareResult.TotalMinutes}}分（{{formatDuration .TimeFareResult.TotalMinutes}}）</p>
                 <p>基礎運賃: &yen;{{formatNumber .TimeFareResult.BaseFare}}</p>
