@@ -259,6 +259,7 @@ func TestTimeFareService_Calculate(t *testing.T) {
 				tt.loadingMinutes,
 				tt.isNight,
 				tt.isHoliday,
+				false, // useSimpleBaseKm = false（トラ協PDF版）
 			)
 
 			if err != nil {
@@ -341,10 +342,137 @@ func TestTimeFareService_Calculate_Error(t *testing.T) {
 				tt.loadingMinutes,
 				false,
 				false,
+				false, // useSimpleBaseKm
 			)
 
 			if err == nil {
 				t.Error("エラーが期待されたが、発生しなかった")
+			}
+		})
+	}
+}
+
+func TestTimeFareService_Calculate_SimpleBaseKm(t *testing.T) {
+	// シンプル版: 4時間制=30km、8時間制=50km（車格に関係なく固定）
+	tests := []struct {
+		name           string
+		regionCode     int
+		vehicleCode    int
+		distanceKm     int
+		drivingMinutes int
+		loadingMinutes int
+		isNight        bool
+		isHoliday      bool
+		baseFare       int
+		dbBaseKm       int // DBから返される値（トラ協PDF版）
+		distSurcharge  int
+		timeSurcharge  int
+		wantHours      int
+		wantBaseKm     int // シンプル版で使用される基礎走行キロ
+		wantTotalFare  int
+	}{
+		{
+			name:           "シンプル版・4時間制（基礎走行キロ30km固定）",
+			regionCode:     3,
+			vehicleCode:    3, // 大型車（トラ協PDF版なら60km）
+			distanceKm:     50, // 30km + 20km超過
+			drivingMinutes: 120,
+			loadingMinutes: 60, // 合計3時間 → 4時間制
+			isNight:        false,
+			isHoliday:      false,
+			baseFare:       36050,
+			dbBaseKm:       60,  // DBの値（使用されない）
+			distSurcharge:  630,
+			timeSurcharge:  4180,
+			wantHours:      4,
+			wantBaseKm:     30, // シンプル版
+			wantTotalFare:  37310, // 36050 + (20/10)*630 = 36050 + 1260
+		},
+		{
+			name:           "シンプル版・8時間制（基礎走行キロ50km固定）",
+			regionCode:     3,
+			vehicleCode:    3, // 大型車（トラ協PDF版なら130km）
+			distanceKm:     100, // 50km + 50km超過
+			drivingMinutes: 300,
+			loadingMinutes: 60, // 合計6時間 → 8時間制
+			isNight:        false,
+			isHoliday:      false,
+			baseFare:       60090,
+			dbBaseKm:       130, // DBの値（使用されない）
+			distSurcharge:  630,
+			timeSurcharge:  4180,
+			wantHours:      8,
+			wantBaseKm:     50, // シンプル版
+			wantTotalFare:  63240, // 60090 + (50/10)*630 = 60090 + 3150
+		},
+		{
+			name:           "シンプル版・小型車も同じ基礎走行キロ",
+			regionCode:     3,
+			vehicleCode:    1, // 小型車（トラ協PDF版なら4時間制50km）
+			distanceKm:     40, // 30km + 10km超過
+			drivingMinutes: 120,
+			loadingMinutes: 60, // 合計3時間 → 4時間制
+			isNight:        false,
+			isHoliday:      false,
+			baseFare:       23630,
+			dbBaseKm:       50,  // DBの値（使用されない）
+			distSurcharge:  350,
+			timeSurcharge:  3710,
+			wantHours:      4,
+			wantBaseKm:     30, // シンプル版（車格に関係なく固定）
+			wantTotalFare:  23980, // 23630 + (10/10)*350 = 23630 + 350
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &mockTimeFareGetter{
+				baseFare: &model.JtaTimeBaseFare{
+					RegionCode:  tt.regionCode,
+					VehicleCode: tt.vehicleCode,
+					Hours:       tt.wantHours,
+					BaseKm:      tt.dbBaseKm, // DBから返される値
+					FareYen:     tt.baseFare,
+				},
+				distSurcharge: &model.JtaTimeSurcharge{
+					RegionCode:    tt.regionCode,
+					VehicleCode:   tt.vehicleCode,
+					SurchargeType: "distance",
+					FareYen:       tt.distSurcharge,
+				},
+				timeSurcharge: &model.JtaTimeSurcharge{
+					RegionCode:    tt.regionCode,
+					VehicleCode:   tt.vehicleCode,
+					SurchargeType: "time",
+					FareYen:       tt.timeSurcharge,
+				},
+			}
+
+			service := NewTimeFareService(mock)
+
+			result, err := service.Calculate(
+				tt.regionCode,
+				tt.vehicleCode,
+				tt.distanceKm,
+				tt.drivingMinutes,
+				tt.loadingMinutes,
+				tt.isNight,
+				tt.isHoliday,
+				true, // useSimpleBaseKm = true
+			)
+
+			if err != nil {
+				t.Fatalf("予期しないエラー: %v", err)
+			}
+
+			// 基礎走行キロの検証（シンプル版の値が使用されていること）
+			if result.BaseKm != tt.wantBaseKm {
+				t.Errorf("BaseKm = %d, want %d", result.BaseKm, tt.wantBaseKm)
+			}
+
+			// 合計運賃の検証
+			if result.TotalFare != tt.wantTotalFare {
+				t.Errorf("TotalFare = %d, want %d", result.TotalFare, tt.wantTotalFare)
 			}
 		})
 	}

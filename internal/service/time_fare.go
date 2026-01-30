@@ -57,8 +57,9 @@ type TimeFareResult struct {
 	HolidayRate float64 // 休日割増率（1.0 or 1.2）
 
 	// フラグ
-	IsNight   bool // 深夜適用
-	IsHoliday bool // 休日適用
+	IsNight         bool // 深夜適用
+	IsHoliday       bool // 休日適用
+	UseSimpleBaseKm bool // シンプル版基礎走行キロ使用
 }
 
 // DetermineHoursSystem 総作業時間から適用時間制を判定
@@ -70,11 +71,21 @@ func DetermineHoursSystem(totalMinutes int) int {
 	return 8
 }
 
+// シンプル版の基礎走行キロ（Issue記載値）
+const (
+	SimpleBaseKm4Hours = 30 // 4時間制: 30km固定
+	SimpleBaseKm8Hours = 50 // 8時間制: 50km固定
+)
+
 // Calculate 時間制運賃を計算する
+// useSimpleBaseKm: trueの場合、シンプル版の基礎走行キロ（30km/50km固定）を使用
+//
+//	falseの場合、トラ協PDF版の基礎走行キロ（車格別）を使用
 func (s *TimeFareService) Calculate(
 	regionCode, vehicleCode, distanceKm int,
 	drivingMinutes, loadingMinutes int,
 	isNight, isHoliday bool,
+	useSimpleBaseKm bool,
 ) (*TimeFareResult, error) {
 	// 入力値検証
 	if err := s.validateInput(regionCode, vehicleCode, distanceKm, drivingMinutes); err != nil {
@@ -105,8 +116,19 @@ func (s *TimeFareService) Calculate(
 		return nil, fmt.Errorf("時間超過加算額取得エラー: %w", err)
 	}
 
-	// 基礎走行キロ
-	baseKm := baseFare.BaseKm
+	// 基礎走行キロを決定
+	var baseKm int
+	if useSimpleBaseKm {
+		// シンプル版: 車格に関係なく固定値
+		if appliedHours == 4 {
+			baseKm = SimpleBaseKm4Hours
+		} else {
+			baseKm = SimpleBaseKm8Hours
+		}
+	} else {
+		// トラ協PDF版: DBから取得した車格別の値
+		baseKm = baseFare.BaseKm
+	}
 
 	// 超過距離を計算（10km単位）
 	excessKm := 0
@@ -171,6 +193,7 @@ func (s *TimeFareService) Calculate(
 		HolidayRate:       holidayRate,
 		IsNight:           isNight,
 		IsHoliday:         isHoliday,
+		UseSimpleBaseKm:   useSimpleBaseKm,
 	}, nil
 }
 
@@ -213,7 +236,12 @@ func (r *TimeFareResult) Breakdown() string {
 	result += fmt.Sprintf("  運輸局: %s\n", regionNames[r.RegionCode])
 	result += fmt.Sprintf("  車格: %s\n", vehicleNames[r.VehicleCode])
 	result += fmt.Sprintf("  適用制度: %d時間制\n", r.AppliedHours)
-	result += fmt.Sprintf("  走行距離: %dkm（基礎走行キロ: %dkm）\n", r.DistanceKm, r.BaseKm)
+
+	baseKmType := "トラ協PDF版"
+	if r.UseSimpleBaseKm {
+		baseKmType = "シンプル版"
+	}
+	result += fmt.Sprintf("  走行距離: %dkm（基礎走行キロ: %dkm [%s]）\n", r.DistanceKm, r.BaseKm, baseKmType)
 	result += fmt.Sprintf("  走行時間: %d時間%d分\n", r.DrivingMinutes/60, r.DrivingMinutes%60)
 	result += fmt.Sprintf("  荷役時間: %d時間%d分\n", r.LoadingMinutes/60, r.LoadingMinutes%60)
 	result += fmt.Sprintf("  総作業時間: %d時間%d分\n", r.TotalMinutes/60, r.TotalMinutes%60)
