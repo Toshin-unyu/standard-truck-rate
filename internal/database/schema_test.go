@@ -30,6 +30,7 @@ func TestInitMainDB(t *testing.T) {
 		"akabou_area_surcharges",
 		"akabou_additional_fees",
 		"api_usage",
+		"highway_ic_master",
 	}
 
 	// 各テーブルの存在確認
@@ -51,8 +52,15 @@ func TestInitCacheDB(t *testing.T) {
 	}
 	defer db.Close()
 
-	if !tableExists(t, db, "route_cache") {
-		t.Error("テーブル route_cache が存在しない")
+	expectedTables := []string{
+		"route_cache",
+		"highway_toll_cache",
+	}
+
+	for _, table := range expectedTables {
+		if !tableExists(t, db, table) {
+			t.Errorf("テーブル %s が存在しない", table)
+		}
 	}
 }
 
@@ -249,6 +257,56 @@ func TestRouteCacheSchema(t *testing.T) {
 	}
 
 	checkTableColumns(t, db, "route_cache", expectedColumns)
+}
+
+// TestHighwayICMasterSchema highway_ic_masterテーブルのカラム確認
+func TestHighwayICMasterSchema(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "str.db")
+
+	db, err := InitMainDB(dbPath)
+	if err != nil {
+		t.Fatalf("InitMainDB failed: %v", err)
+	}
+	defer db.Close()
+
+	expectedColumns := map[string]string{
+		"code":       "TEXT",
+		"name":       "TEXT",
+		"yomi":       "TEXT",
+		"type":       "INTEGER",
+		"road_no":    "TEXT",
+		"road_name":  "TEXT",
+		"updated_at": "DATETIME",
+	}
+
+	checkTableColumns(t, db, "highway_ic_master", expectedColumns)
+}
+
+// TestHighwayTollCacheSchema highway_toll_cacheテーブルのカラム確認
+func TestHighwayTollCacheSchema(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "cache.db")
+
+	db, err := InitCacheDB(dbPath)
+	if err != nil {
+		t.Fatalf("InitCacheDB failed: %v", err)
+	}
+	defer db.Close()
+
+	expectedColumns := map[string]string{
+		"origin_ic":    "TEXT",
+		"dest_ic":      "TEXT",
+		"car_type":     "INTEGER",
+		"normal_toll":  "INTEGER",
+		"etc_toll":     "INTEGER",
+		"etc2_toll":    "INTEGER",
+		"distance_km":  "REAL",
+		"duration_min": "INTEGER",
+		"created_at":   "DATETIME",
+	}
+
+	checkTableColumns(t, db, "highway_toll_cache", expectedColumns)
 }
 
 // TestInitMainDBIdempotent 複数回初期化しても問題ないことを確認

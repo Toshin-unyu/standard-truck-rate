@@ -123,6 +123,21 @@ func createMainTables(db *sql.DB) error {
 			limit_count INTEGER NOT NULL DEFAULT 9000,
 			last_updated DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		)`,
+
+		// 高速道路ICマスタ
+		`CREATE TABLE IF NOT EXISTS highway_ic_master (
+			code TEXT PRIMARY KEY,
+			name TEXT NOT NULL,
+			yomi TEXT NOT NULL,
+			type INTEGER NOT NULL,
+			road_no TEXT NOT NULL,
+			road_name TEXT NOT NULL,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// ICマスタ検索用インデックス
+		`CREATE INDEX IF NOT EXISTS idx_highway_ic_name ON highway_ic_master(name)`,
+		`CREATE INDEX IF NOT EXISTS idx_highway_ic_yomi ON highway_ic_master(yomi)`,
 	}
 
 	for _, schema := range schemas {
@@ -135,15 +150,37 @@ func createMainTables(db *sql.DB) error {
 }
 
 func createCacheTables(db *sql.DB) error {
-	schema := `CREATE TABLE IF NOT EXISTS route_cache (
-		origin TEXT NOT NULL,
-		dest TEXT NOT NULL,
-		distance_km REAL NOT NULL,
-		duration_min INTEGER NOT NULL,
-		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		PRIMARY KEY (origin, dest)
-	)`
+	schemas := []string{
+		// ルートキャッシュ
+		`CREATE TABLE IF NOT EXISTS route_cache (
+			origin TEXT NOT NULL,
+			dest TEXT NOT NULL,
+			distance_km REAL NOT NULL,
+			duration_min INTEGER NOT NULL,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (origin, dest)
+		)`,
 
-	_, err := db.Exec(schema)
-	return err
+		// 高速料金キャッシュ
+		`CREATE TABLE IF NOT EXISTS highway_toll_cache (
+			origin_ic TEXT NOT NULL,
+			dest_ic TEXT NOT NULL,
+			car_type INTEGER NOT NULL,
+			normal_toll INTEGER NOT NULL,
+			etc_toll INTEGER NOT NULL,
+			etc2_toll INTEGER NOT NULL,
+			distance_km REAL NOT NULL,
+			duration_min INTEGER NOT NULL,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (origin_ic, dest_ic, car_type)
+		)`,
+	}
+
+	for _, schema := range schemas {
+		if _, err := db.Exec(schema); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
