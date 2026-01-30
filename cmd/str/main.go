@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"html/template"
 	"io"
 	"log"
@@ -20,6 +21,53 @@ type Template struct {
 // Render テンプレートをレンダリング
 func (t *Template) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
 	return t.templates.ExecuteTemplate(w, name, data)
+}
+
+// テンプレート関数
+var templateFuncs = template.FuncMap{
+	// 数値を3桁区切りでフォーマット
+	"formatNumber": func(n int) string {
+		// 簡易的な3桁区切り実装
+		str := fmt.Sprintf("%d", n)
+		result := ""
+		for i, c := range str {
+			if i > 0 && (len(str)-i)%3 == 0 {
+				result += ","
+			}
+			result += string(c)
+		}
+		return result
+	},
+	// 運輸局コードを名称に変換
+	"regionName": func(code int) string {
+		names := map[int]string{
+			1: "北海道", 2: "東北", 3: "関東", 4: "北陸信越", 5: "中部",
+			6: "近畿", 7: "中国", 8: "四国", 9: "九州", 10: "沖縄",
+		}
+		if name, ok := names[code]; ok {
+			return name
+		}
+		return fmt.Sprintf("不明(%d)", code)
+	},
+	// 車格コードを名称に変換
+	"vehicleName": func(code int) string {
+		names := map[int]string{
+			1: "小型車（2t）", 2: "中型車（4t）", 3: "大型車（10t）", 4: "トレーラー（20t）",
+		}
+		if name, ok := names[code]; ok {
+			return name
+		}
+		return fmt.Sprintf("不明(%d)", code)
+	},
+	// 分を時間:分形式に変換
+	"formatDuration": func(minutes int) string {
+		hours := minutes / 60
+		mins := minutes % 60
+		if hours > 0 {
+			return fmt.Sprintf("%d時間%d分", hours, mins)
+		}
+		return fmt.Sprintf("%d分", mins)
+	},
 }
 
 func main() {
@@ -47,9 +95,12 @@ func main() {
 
 	e := echo.New()
 
-	// テンプレート設定
+	// テンプレート設定（サブディレクトリも含めて読み込み）
+	tmpl := template.New("").Funcs(templateFuncs)
+	tmpl = template.Must(tmpl.ParseGlob("web/templates/*.html"))
+	tmpl = template.Must(tmpl.ParseGlob("web/templates/partials/*.html"))
 	t := &Template{
-		templates: template.Must(template.ParseGlob("web/templates/*.html")),
+		templates: tmpl,
 	}
 	e.Renderer = t
 
@@ -65,7 +116,7 @@ func main() {
 
 	// Routes
 	e.GET("/", func(c echo.Context) error {
-		return c.String(200, "Standard Truck Rate - トラック運賃簡易予測システム")
+		return c.Render(200, "index.html", nil)
 	})
 
 	e.GET("/health", func(c echo.Context) error {
