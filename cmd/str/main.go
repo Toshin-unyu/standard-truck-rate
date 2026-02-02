@@ -12,6 +12,7 @@ import (
 	"github.com/y-suzuki/standard-truck-rate/internal/database"
 	"github.com/y-suzuki/standard-truck-rate/internal/handler"
 	"github.com/y-suzuki/standard-truck-rate/internal/model"
+	"github.com/y-suzuki/standard-truck-rate/internal/repository"
 	"github.com/y-suzuki/standard-truck-rate/internal/service"
 )
 
@@ -132,6 +133,11 @@ func main() {
 	calculateHandler := handler.NewCalculateHandler(fareCalculator)
 	routeHandler := handler.NewRouteHandler(cacheDB, routeClient)
 
+	// API使用量ハンドラ
+	apiUsageRepo := repository.NewApiUsageRepository(mainDB)
+	apiUsageService := service.NewApiUsageService(apiUsageRepo)
+	apiUsageHandler := handler.NewApiUsageHandler(apiUsageService)
+
 	// Routes
 	e.GET("/", indexHandler.Index)
 
@@ -154,6 +160,9 @@ func main() {
 	// 高速道路料金API
 	e.GET("/api/highway/ic/search", highwayHandler.SearchIC)
 	e.GET("/api/highway/toll", highwayHandler.GetToll)
+
+	// API使用量
+	e.GET("/api/usage", apiUsageHandler.GetUsage)
 
 	// Start server
 	port := os.Getenv("PORT")
