@@ -1,11 +1,13 @@
 package handler
 
 import (
+	"database/sql"
 	"net/http"
 	"strconv"
 
 	"github.com/labstack/echo/v4"
 	"github.com/y-suzuki/standard-truck-rate/internal/model"
+	"github.com/y-suzuki/standard-truck-rate/internal/repository"
 	"github.com/y-suzuki/standard-truck-rate/internal/service"
 )
 
@@ -14,10 +16,14 @@ type CalculateHandler struct {
 	fareCalculator   *service.FareCalculatorService
 	routeClient      service.RouteClient
 	geocodingClient  service.GeocodingClient
+	// 高速料金関連
+	icRepo     *repository.HighwayICRepository
+	tollRepo   *repository.HighwayTollRepository
+	drivePlaza *service.DrivePlazaClient
 }
 
 // NewCalculateHandler 新しいCalculateHandlerを作成
-func NewCalculateHandler(fareCalculator *service.FareCalculatorService, routeClient service.RouteClient, geocodingClient service.GeocodingClient) *CalculateHandler {
+func NewCalculateHandler(fareCalculator *service.FareCalculatorService, routeClient service.RouteClient, geocodingClient service.GeocodingClient, mainDB, cacheDB *sql.DB) *CalculateHandler {
 	// デフォルト値の設定
 	if fareCalculator == nil {
 		fareCalculator = createMockFareCalculator()
@@ -29,11 +35,20 @@ func NewCalculateHandler(fareCalculator *service.FareCalculatorService, routeCli
 		geocodingClient = service.NewMockGeocodingClient()
 	}
 
-	return &CalculateHandler{
+	h := &CalculateHandler{
 		fareCalculator:  fareCalculator,
 		routeClient:     routeClient,
 		geocodingClient: geocodingClient,
 	}
+
+	// 高速料金関連（DBが渡された場合のみ初期化）
+	if mainDB != nil && cacheDB != nil {
+		h.icRepo = repository.NewHighwayICRepository(mainDB)
+		h.tollRepo = repository.NewHighwayTollRepository(cacheDB)
+		h.drivePlaza = service.NewDrivePlazaClient()
+	}
+
+	return h
 }
 
 // createMockFareCalculator テスト用のモックFareCalculatorを作成
@@ -63,6 +78,46 @@ type CalculateRequest struct {
 	IsHoliday       bool   `form:"is_holiday"`
 	UseSimpleBaseKm bool   `form:"use_simple_base_km"`
 	Area            string `form:"area"`
+
+	// 高速道路パラメータ
+	UseHighway     bool   `form:"use_highway"`      // 高速道路使用
+	OriginIC       string `form:"origin_ic"`        // 乗IC
+	DestIC         string `form:"dest_ic"`          // 降IC
+	HighwayCarType int    `form:"highway_car_type"` // 高速料金車種（0-4）
+}
+
+// CalculateResultWithHighway 運賃計算結果＋高速料金
+type CalculateResultWithHighway struct {
+	*service.FareComparisonResult
+	// 高速料金
+	UseHighway   bool              `json:"use_highway"`
+	HighwayToll  *HighwayTollInfo  `json:"highway_toll,omitempty"`
+	HighwayError string            `json:"highway_error,omitempty"`
+	// 合計金額
+	TotalWithHighway *TotalWithHighway `json:"total_with_highway,omitempty"`
+}
+
+// HighwayTollInfo 高速料金情報
+type HighwayTollInfo struct {
+	OriginIC    string  `json:"origin_ic"`
+	DestIC      string  `json:"dest_ic"`
+	CarType     int     `json:"car_type"`
+	CarTypeName string  `json:"car_type_name"`
+	NormalToll  int     `json:"normal_toll"`
+	EtcToll     int     `json:"etc_toll"`
+	Etc2Toll    int     `json:"etc2_toll"`
+	DistanceKm  float64 `json:"distance_km"`
+	DurationMin int     `json:"duration_min"`
+	FromCache   bool    `json:"from_cache"`
+}
+
+// TotalWithHighway 運賃＋高速代の合計
+type TotalWithHighway struct {
+	MinFare      int `json:"min_fare"`       // 最安運賃
+	MaxFare      int `json:"max_fare"`       // 最高運賃
+	HighwayToll  int `json:"highway_toll"`   // 高速代（ETC料金）
+	MinTotal     int `json:"min_total"`      // 最安合計
+	MaxTotal     int `json:"max_total"`      // 最高合計
 }
 
 // Calculate 運賃を計算してHTMLフラグメントを返す（HTMX用）
@@ -79,7 +134,7 @@ func (h *CalculateHandler) Calculate(c echo.Context) error {
 	}
 
 	// 運賃計算
-	result, err := h.fareCalculator.CalculateAll(&service.FareCalculationRequest{
+	fareResult, err := h.fareCalculator.CalculateAll(&service.FareCalculationRequest{
 		RegionCode:      req.RegionCode,
 		VehicleCode:     req.VehicleCode,
 		DistanceKm:      req.DistanceKm,
@@ -92,6 +147,30 @@ func (h *CalculateHandler) Calculate(c echo.Context) error {
 	})
 	if err != nil {
 		return c.Render(http.StatusOK, "error", map[string]string{"Error": "運賃計算エラー: " + err.Error()})
+	}
+
+	// 結果を構築
+	result := &CalculateResultWithHighway{
+		FareComparisonResult: fareResult,
+		UseHighway:           req.UseHighway,
+	}
+
+	// 高速料金を取得（高速道路使用時）
+	if req.UseHighway && req.OriginIC != "" && req.DestIC != "" {
+		tollInfo, tollErr := h.fetchHighwayToll(req.OriginIC, req.DestIC, req.HighwayCarType)
+		if tollErr != nil {
+			result.HighwayError = tollErr.Error()
+		} else {
+			result.HighwayToll = tollInfo
+			// 合計金額を計算
+			result.TotalWithHighway = &TotalWithHighway{
+				MinFare:     fareResult.CheapestFare,
+				MaxFare:     fareResult.Rankings[len(fareResult.Rankings)-1].Fare,
+				HighwayToll: tollInfo.EtcToll, // ETC料金を使用
+				MinTotal:    fareResult.CheapestFare + tollInfo.EtcToll,
+				MaxTotal:    fareResult.Rankings[len(fareResult.Rankings)-1].Fare + tollInfo.EtcToll,
+			}
+		}
 	}
 
 	return c.Render(http.StatusOK, "result", result)
@@ -111,7 +190,7 @@ func (h *CalculateHandler) CalculateJSON(c echo.Context) error {
 	}
 
 	// 運賃計算
-	result, err := h.fareCalculator.CalculateAll(&service.FareCalculationRequest{
+	fareResult, err := h.fareCalculator.CalculateAll(&service.FareCalculationRequest{
 		RegionCode:      req.RegionCode,
 		VehicleCode:     req.VehicleCode,
 		DistanceKm:      req.DistanceKm,
@@ -124,6 +203,30 @@ func (h *CalculateHandler) CalculateJSON(c echo.Context) error {
 	})
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "運賃計算エラー: " + err.Error()})
+	}
+
+	// 結果を構築
+	result := &CalculateResultWithHighway{
+		FareComparisonResult: fareResult,
+		UseHighway:           req.UseHighway,
+	}
+
+	// 高速料金を取得（高速道路使用時）
+	if req.UseHighway && req.OriginIC != "" && req.DestIC != "" {
+		tollInfo, tollErr := h.fetchHighwayToll(req.OriginIC, req.DestIC, req.HighwayCarType)
+		if tollErr != nil {
+			result.HighwayError = tollErr.Error()
+		} else {
+			result.HighwayToll = tollInfo
+			// 合計金額を計算
+			result.TotalWithHighway = &TotalWithHighway{
+				MinFare:     fareResult.CheapestFare,
+				MaxFare:     fareResult.Rankings[len(fareResult.Rankings)-1].Fare,
+				HighwayToll: tollInfo.EtcToll,
+				MinTotal:    fareResult.CheapestFare + tollInfo.EtcToll,
+				MaxTotal:    fareResult.Rankings[len(fareResult.Rankings)-1].Fare + tollInfo.EtcToll,
+			}
+		}
 	}
 
 	return c.JSON(http.StatusOK, result)
@@ -180,6 +283,18 @@ func (h *CalculateHandler) parseRequest(c echo.Context) (*CalculateRequest, erro
 	req.IsHoliday = c.FormValue("is_holiday") == "true"
 	req.UseSimpleBaseKm = c.FormValue("use_simple_base_km") == "true"
 	req.Area = c.FormValue("area")
+
+	// 高速道路パラメータ
+	req.UseHighway = c.FormValue("use_highway") == "true"
+	req.OriginIC = c.FormValue("origin_ic")
+	req.DestIC = c.FormValue("dest_ic")
+	if v := c.FormValue("highway_car_type"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			req.HighwayCarType = n
+		}
+	} else {
+		req.HighwayCarType = model.CarTypeLarge // デフォルト: 大型車
+	}
 
 	// origin/dest が指定されている場合、ルート情報から距離・時間・運輸局を取得
 	if req.Origin != "" && req.Dest != "" {
@@ -292,4 +407,54 @@ func (m *mockTimeFareGetter) GetSurcharge(regionCode, vehicleCode int, surcharge
 		SurchargeType: surchargeType,
 		FareYen:       fareYen,
 	}, nil
+}
+
+// fetchHighwayToll 高速料金を取得
+func (h *CalculateHandler) fetchHighwayToll(originIC, destIC string, carType int) (*HighwayTollInfo, error) {
+	if h.tollRepo == nil || h.drivePlaza == nil {
+		return nil, &ValidationError{Message: "高速料金取得機能が初期化されていません"}
+	}
+
+	// キャッシュを確認
+	if h.tollRepo.Exists(originIC, destIC, carType) {
+		toll, err := h.tollRepo.Get(originIC, destIC, carType)
+		if err == nil {
+			return buildHighwayTollInfo(toll, true), nil
+		}
+	}
+
+	// ドラぷらから取得
+	toll, err := h.drivePlaza.FetchToll(originIC, destIC, carType)
+	if err != nil {
+		return nil, &ValidationError{Message: "高速料金取得エラー: " + err.Error()}
+	}
+
+	// キャッシュに保存
+	h.tollRepo.Upsert(toll)
+
+	return buildHighwayTollInfo(toll, false), nil
+}
+
+// buildHighwayTollInfo HighwayTollからHighwayTollInfoを作成
+func buildHighwayTollInfo(toll *model.HighwayToll, fromCache bool) *HighwayTollInfo {
+	carTypeNames := map[int]string{
+		0: "軽自動車等",
+		1: "普通車",
+		2: "中型車",
+		3: "大型車",
+		4: "特大車",
+	}
+
+	return &HighwayTollInfo{
+		OriginIC:    toll.OriginIC,
+		DestIC:      toll.DestIC,
+		CarType:     toll.CarType,
+		CarTypeName: carTypeNames[toll.CarType],
+		NormalToll:  toll.NormalToll,
+		EtcToll:     toll.EtcToll,
+		Etc2Toll:    toll.Etc2Toll,
+		DistanceKm:  toll.DistanceKm,
+		DurationMin: toll.DurationMin,
+		FromCache:   fromCache,
+	}
 }

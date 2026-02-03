@@ -18,20 +18,7 @@
         <div class="container mx-auto px-4 py-4">
             <div class="flex items-center justify-between">
                 <a href="/" class="text-xl font-bold">STR - トラック運賃簡易予測</a>
-                <nav class="hidden md:flex space-x-4">
-                    <a href="/" class="hover:text-blue-200">運賃計算</a>
-                    <a href="/highway" class="hover:text-blue-200">高速料金検索</a>
-                </nav>
-                <button id="menuBtn" class="md:hidden p-2">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-                    </svg>
-                </button>
             </div>
-            <nav id="mobileMenu" class="hidden md:hidden mt-4 space-y-2">
-                <a href="/" class="block py-2 hover:text-blue-200">運賃計算</a>
-                <a href="/highway" class="block py-2 hover:text-blue-200">高速料金検索</a>
-            </nav>
         </div>
     </header>
 
@@ -50,11 +37,6 @@
         </div>
     </footer>
 
-    <script>
-        document.getElementById('menuBtn').addEventListener('click', function() {
-            document.getElementById('mobileMenu').classList.toggle('hidden');
-        });
-    </script>
 </body>
 </html>
 {{end}}

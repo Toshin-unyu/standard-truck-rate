@@ -29,7 +29,7 @@ func TestCalculateHandler_Calculate(t *testing.T) {
 	renderer := &mockRenderer{}
 	e.Renderer = renderer
 
-	handler := NewCalculateHandler(nil, nil, nil)
+	handler := NewCalculateHandler(nil, nil, nil, nil, nil)
 
 	tests := []struct {
 		name           string
@@ -142,7 +142,7 @@ func TestCalculateHandler_Calculate(t *testing.T) {
 func TestCalculateHandler_CalculateJSON(t *testing.T) {
 	e := echo.New()
 
-	handler := NewCalculateHandler(nil, nil, nil)
+	handler := NewCalculateHandler(nil, nil, nil, nil, nil)
 
 	tests := []struct {
 		name           string
@@ -189,7 +189,7 @@ func TestCalculateHandler_CalculateWithRoute(t *testing.T) {
 	renderer := &mockRenderer{}
 	e.Renderer = renderer
 
-	handler := NewCalculateHandler(nil, nil, nil)
+	handler := NewCalculateHandler(nil, nil, nil, nil, nil)
 
 	tests := []struct {
 		name           string

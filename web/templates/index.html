@@ -92,6 +92,59 @@
                 </div>
             </div>
 
+            <!-- 高速道路オプション -->
+            <div class="mb-6">
+                <h2 class="text-lg font-semibold text-gray-700 mb-4 pb-2 border-b">高速道路</h2>
+                <div class="space-y-4">
+                    <!-- 高速道路使用チェック -->
+                    <label class="flex items-center">
+                        <input type="checkbox" name="use_highway" id="useHighway" value="true"
+                               class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                               onchange="toggleHighwayOptions()">
+                        <span class="ml-2 text-sm text-gray-700">高速道路を使用する</span>
+                    </label>
+
+                    <!-- 高速道路詳細（チェック時のみ表示） -->
+                    <div id="highwayOptions" class="hidden pl-6 space-y-4 border-l-2 border-blue-200">
+                        <!-- IC入力 -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- 乗IC -->
+                            <div class="relative">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">乗IC</label>
+                                <input type="text" name="origin_ic" id="originIC"
+                                       placeholder="IC名を入力..."
+                                       autocomplete="off"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <div id="originSuggestions" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg hidden max-h-60 overflow-y-auto"></div>
+                            </div>
+
+                            <!-- 降IC -->
+                            <div class="relative">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">降IC</label>
+                                <input type="text" name="dest_ic" id="destIC"
+                                       placeholder="IC名を入力..."
+                                       autocomplete="off"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <div id="destSuggestions" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg hidden max-h-60 overflow-y-auto"></div>
+                            </div>
+                        </div>
+
+                        <!-- 高速料金用車種 -->
+                        <div class="max-w-xs">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">高速料金車種</label>
+                            <select name="highway_car_type" id="highwayCarType"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="0">軽自動車等（軽貨物/赤帽）</option>
+                                <option value="2">中型車（4t）</option>
+                                <option value="3" selected>大型車（10t）</option>
+                                <option value="4">特大車（トレーラー）</option>
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">高速料金計算に使用する車種区分</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- 計算ボタン -->
             <div class="flex items-center gap-4">
                 <button type="submit"
@@ -139,5 +192,69 @@
         </div>
     </div>
 </div>
+
+<script>
+    // 高速道路オプションの表示切替
+    function toggleHighwayOptions() {
+        const checkbox = document.getElementById('useHighway');
+        const options = document.getElementById('highwayOptions');
+        if (checkbox.checked) {
+            options.classList.remove('hidden');
+        } else {
+            options.classList.add('hidden');
+        }
+    }
+
+    // ICオートコンプリート機能
+    function setupICAutocomplete(inputId, suggestionsId) {
+        const input = document.getElementById(inputId);
+        const suggestions = document.getElementById(suggestionsId);
+        let debounceTimer;
+
+        input.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            const query = this.value.trim();
+
+            if (query.length < 1) {
+                suggestions.classList.add('hidden');
+                return;
+            }
+
+            debounceTimer = setTimeout(() => {
+                fetch(`/api/highway/ic/search?q=${encodeURIComponent(query)}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        suggestions.innerHTML = '';
+                        if (data.ics && data.ics.length > 0) {
+                            data.ics.forEach(ic => {
+                                const div = document.createElement('div');
+                                div.className = 'px-3 py-2 cursor-pointer hover:bg-gray-100 border-b last:border-b-0';
+                                div.innerHTML = `<span class="font-medium">${ic.name}</span> <span class="text-sm text-gray-500">${ic.road_name}</span>`;
+                                div.addEventListener('click', () => {
+                                    input.value = ic.name;
+                                    suggestions.classList.add('hidden');
+                                });
+                                suggestions.appendChild(div);
+                            });
+                            suggestions.classList.remove('hidden');
+                        } else {
+                            suggestions.classList.add('hidden');
+                        }
+                    });
+            }, 200);
+        });
+
+        // 入力欄外クリックで候補を閉じる
+        document.addEventListener('click', function(e) {
+            if (!input.contains(e.target) && !suggestions.contains(e.target)) {
+                suggestions.classList.add('hidden');
+            }
+        });
+    }
+
+    // 初期化
+    setupICAutocomplete('originIC', 'originSuggestions');
+    setupICAutocomplete('destIC', 'destSuggestions');
+</script>
 
 {{template "footer" .}}

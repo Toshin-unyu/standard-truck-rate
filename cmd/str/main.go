@@ -139,7 +139,7 @@ func main() {
 	// ハンドラ
 	highwayHandler := handler.NewHighwayHandler(mainDB, cacheDB)
 	indexHandler := handler.NewIndexHandler()
-	calculateHandler := handler.NewCalculateHandler(fareCalculator, routeClient, geocodingClient)
+	calculateHandler := handler.NewCalculateHandler(fareCalculator, routeClient, geocodingClient, mainDB, cacheDB)
 	routeHandler := handler.NewRouteHandler(cacheDB, routeClient, apiUsageService)
 	apiUsageHandler := handler.NewApiUsageHandler(apiUsageService)
 
@@ -148,11 +148,6 @@ func main() {
 
 	e.GET("/health", func(c echo.Context) error {
 		return c.JSON(200, map[string]string{"status": "ok"})
-	})
-
-	// 高速道路料金ページ
-	e.GET("/highway", func(c echo.Context) error {
-		return c.Render(200, "highway.html", nil)
 	})
 
 	// 運賃計算API
