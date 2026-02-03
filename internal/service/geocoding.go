@@ -204,7 +204,22 @@ func ExtractPrefectureFromAddress(address string) (string, bool) {
 		return "", false
 	}
 
-	// 都道府県のパターン
+	// 省略形から正式名称へのマッピング（先にチェック）
+	shortNames := map[string]string{
+		"東京":  "東京都",
+		"大阪":  "大阪府",
+		"京都":  "京都府",
+		"北海道": "北海道",
+	}
+
+	// 省略形をチェック（住所に含まれていれば）
+	for short, full := range shortNames {
+		if strings.Contains(address, short) {
+			return full, true
+		}
+	}
+
+	// 都道府県のパターン（正式名称）
 	prefecturePatterns := []string{
 		"北海道",
 		"東京都",
@@ -225,17 +240,36 @@ func ExtractPrefectureFromAddress(address string) (string, bool) {
 		"沖縄県",
 	}
 
-	// 特殊な都道府県を先にチェック
+	// 特殊な都道府県を先にチェック（正式名称）
 	for _, pref := range prefecturePatterns {
-		if strings.HasPrefix(address, pref) {
+		if strings.Contains(address, pref) {
 			return pref, true
 		}
 	}
 
-	// 一般的な県をチェック
+	// 一般的な県をチェック（正式名称）
 	for _, pref := range prefectures {
-		if strings.HasPrefix(address, pref) {
+		if strings.Contains(address, pref) {
 			return pref, true
+		}
+	}
+
+	// 県名の省略形もチェック（「県」なしでも検索）
+	prefectureShortNames := map[string]string{
+		"青森": "青森県", "岩手": "岩手県", "宮城": "宮城県", "秋田": "秋田県", "山形": "山形県", "福島": "福島県",
+		"茨城": "茨城県", "栃木": "栃木県", "群馬": "群馬県", "埼玉": "埼玉県", "千葉": "千葉県", "神奈川": "神奈川県",
+		"新潟": "新潟県", "富山": "富山県", "石川": "石川県", "福井": "福井県", "山梨": "山梨県", "長野": "長野県",
+		"岐阜": "岐阜県", "静岡": "静岡県", "愛知": "愛知県", "三重": "三重県",
+		"滋賀": "滋賀県", "兵庫": "兵庫県", "奈良": "奈良県", "和歌山": "和歌山県",
+		"鳥取": "鳥取県", "島根": "島根県", "岡山": "岡山県", "広島": "広島県", "山口": "山口県",
+		"徳島": "徳島県", "香川": "香川県", "愛媛": "愛媛県", "高知": "高知県",
+		"福岡": "福岡県", "佐賀": "佐賀県", "長崎": "長崎県", "熊本": "熊本県", "大分": "大分県", "宮崎": "宮崎県", "鹿児島": "鹿児島県",
+		"沖縄": "沖縄県",
+	}
+
+	for short, full := range prefectureShortNames {
+		if strings.Contains(address, short) {
+			return full, true
 		}
 	}
 
