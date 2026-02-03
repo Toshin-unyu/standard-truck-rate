@@ -80,10 +80,9 @@ type CalculateRequest struct {
 	Area            string `form:"area"`
 
 	// 高速道路パラメータ
-	UseHighway     bool   `form:"use_highway"`      // 高速道路使用
-	OriginIC       string `form:"origin_ic"`        // 乗IC
-	DestIC         string `form:"dest_ic"`          // 降IC
-	HighwayCarType int    `form:"highway_car_type"` // 高速料金車種（0-4）
+	UseHighway bool   `form:"use_highway"` // 高速道路使用
+	OriginIC   string `form:"origin_ic"`   // 乗IC
+	DestIC     string `form:"dest_ic"`     // 降IC
 }
 
 // CalculateResultWithHighway 運賃計算結果＋高速料金
@@ -157,7 +156,9 @@ func (h *CalculateHandler) Calculate(c echo.Context) error {
 
 	// 高速料金を取得（高速道路使用時）
 	if req.UseHighway && req.OriginIC != "" && req.DestIC != "" {
-		tollInfo, tollErr := h.fetchHighwayToll(req.OriginIC, req.DestIC, req.HighwayCarType)
+		// 車格から高速料金車種を自動マッピング
+		highwayCarType := vehicleCodeToHighwayCarType(req.VehicleCode)
+		tollInfo, tollErr := h.fetchHighwayToll(req.OriginIC, req.DestIC, highwayCarType)
 		if tollErr != nil {
 			result.HighwayError = tollErr.Error()
 		} else {
@@ -213,7 +214,9 @@ func (h *CalculateHandler) CalculateJSON(c echo.Context) error {
 
 	// 高速料金を取得（高速道路使用時）
 	if req.UseHighway && req.OriginIC != "" && req.DestIC != "" {
-		tollInfo, tollErr := h.fetchHighwayToll(req.OriginIC, req.DestIC, req.HighwayCarType)
+		// 車格から高速料金車種を自動マッピング
+		highwayCarType := vehicleCodeToHighwayCarType(req.VehicleCode)
+		tollInfo, tollErr := h.fetchHighwayToll(req.OriginIC, req.DestIC, highwayCarType)
 		if tollErr != nil {
 			result.HighwayError = tollErr.Error()
 		} else {
@@ -288,13 +291,6 @@ func (h *CalculateHandler) parseRequest(c echo.Context) (*CalculateRequest, erro
 	req.UseHighway = c.FormValue("use_highway") == "true"
 	req.OriginIC = c.FormValue("origin_ic")
 	req.DestIC = c.FormValue("dest_ic")
-	if v := c.FormValue("highway_car_type"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			req.HighwayCarType = n
-		}
-	} else {
-		req.HighwayCarType = model.CarTypeLarge // デフォルト: 大型車
-	}
 
 	// origin/dest が指定されている場合、ルート情報から距離・時間・運輸局を取得
 	if req.Origin != "" && req.Dest != "" {
@@ -407,6 +403,22 @@ func (m *mockTimeFareGetter) GetSurcharge(regionCode, vehicleCode int, surcharge
 		SurchargeType: surchargeType,
 		FareYen:       fareYen,
 	}, nil
+}
+
+// vehicleCodeToHighwayCarType 車格コードから高速料金車種を自動マッピング
+func vehicleCodeToHighwayCarType(vehicleCode int) int {
+	switch vehicleCode {
+	case 1: // 小型車（2t）
+		return model.CarTypeNormal // 普通車
+	case 2: // 中型車（4t）
+		return model.CarTypeMedium // 中型車
+	case 3: // 大型車（10t）
+		return model.CarTypeLarge // 大型車
+	case 4: // トレーラー（20t）
+		return model.CarTypeSpecial // 特大車
+	default:
+		return model.CarTypeLarge // デフォルト: 大型車
+	}
 }
 
 // fetchHighwayToll 高速料金を取得
