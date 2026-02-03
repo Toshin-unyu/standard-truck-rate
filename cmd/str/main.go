@@ -118,14 +118,18 @@ func main() {
 	// サービス作成
 	fareCalculator := createFareCalculatorService(mainDB)
 
-	// ルートクライアント作成（モック or Google API）
+	// ルートクライアント・Geocodingクライアント作成（モック or Google API）
 	var routeClient service.RouteClient
+	var geocodingClient service.GeocodingClient
 	googleAPIKey := os.Getenv("GOOGLE_MAPS_API_KEY")
 	if googleAPIKey != "" {
 		routeClient = service.NewGoogleRoutesClient(googleAPIKey)
+		geocodingClient = service.NewGoogleGeocodingClient(googleAPIKey)
+		log.Println("Google Maps APIを使用します")
 	} else {
 		log.Println("GOOGLE_MAPS_API_KEYが未設定のため、モッククライアントを使用します")
 		routeClient = service.NewMockRoutesClient()
+		geocodingClient = service.NewMockGeocodingClient()
 	}
 
 	// API使用量サービス（ルートハンドラで使用するため先に作成）
@@ -135,7 +139,7 @@ func main() {
 	// ハンドラ
 	highwayHandler := handler.NewHighwayHandler(mainDB, cacheDB)
 	indexHandler := handler.NewIndexHandler()
-	calculateHandler := handler.NewCalculateHandler(fareCalculator)
+	calculateHandler := handler.NewCalculateHandler(fareCalculator, routeClient, geocodingClient)
 	routeHandler := handler.NewRouteHandler(cacheDB, routeClient, apiUsageService)
 	apiUsageHandler := handler.NewApiUsageHandler(apiUsageService)
 

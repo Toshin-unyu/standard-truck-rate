@@ -11,21 +11,28 @@ import (
 
 // CalculateHandler 運賃計算ハンドラ
 type CalculateHandler struct {
-	fareCalculator *service.FareCalculatorService
+	fareCalculator   *service.FareCalculatorService
+	routeClient      service.RouteClient
+	geocodingClient  service.GeocodingClient
 }
 
 // NewCalculateHandler 新しいCalculateHandlerを作成
-// fareCalculatorがnilの場合はモックを使用
-func NewCalculateHandler(fareCalculator *service.FareCalculatorService) *CalculateHandler {
+func NewCalculateHandler(fareCalculator *service.FareCalculatorService, routeClient service.RouteClient, geocodingClient service.GeocodingClient) *CalculateHandler {
+	// デフォルト値の設定
 	if fareCalculator == nil {
-		// テスト用: モックサービスを使用
-		return &CalculateHandler{
-			fareCalculator: createMockFareCalculator(),
-		}
+		fareCalculator = createMockFareCalculator()
+	}
+	if routeClient == nil {
+		routeClient = service.NewMockRoutesClient()
+	}
+	if geocodingClient == nil {
+		geocodingClient = service.NewMockGeocodingClient()
 	}
 
 	return &CalculateHandler{
-		fareCalculator: fareCalculator,
+		fareCalculator:  fareCalculator,
+		routeClient:     routeClient,
+		geocodingClient: geocodingClient,
 	}
 }
 
@@ -186,10 +193,10 @@ func (h *CalculateHandler) parseRequest(c echo.Context) (*CalculateRequest, erro
 
 // resolveRouteInfo 出発地/目的地からルート情報を取得してリクエストに設定
 func (h *CalculateHandler) resolveRouteInfo(req *CalculateRequest) error {
-	// 出発地から都道府県を抽出
-	prefecture, ok := service.ExtractPrefectureFromAddress(req.Origin)
-	if !ok {
-		return &ValidationError{Message: "出発地の都道府県を特定できません: " + req.Origin}
+	// Geocoding APIで出発地から都道府県を取得
+	prefecture, err := h.geocodingClient.GetPrefecture(req.Origin)
+	if err != nil {
+		return &ValidationError{Message: "出発地の都道府県を特定できません: " + req.Origin + " (" + err.Error() + ")"}
 	}
 
 	// 都道府県から運輸局コードを取得
@@ -199,14 +206,19 @@ func (h *CalculateHandler) resolveRouteInfo(req *CalculateRequest) error {
 	}
 	req.RegionCode = regionCode
 
-	// 赤帽地区を判定
+	// 赤帽地区を判定（Geocodingで取得した住所情報を使用）
 	if req.Area == "" {
-		req.Area = service.ResolveAkabouArea(req.Origin)
+		// Geocodingで詳細住所を取得して判定
+		components, err := h.geocodingClient.GetAddressComponents(req.Origin)
+		if err == nil && components != nil {
+			req.Area = service.ResolveAkabouArea(components.Address)
+		} else {
+			req.Area = service.ResolveAkabouArea(req.Origin)
+		}
 	}
 
-	// モックルートサービスから距離・時間を取得
-	mockClient := service.NewMockRoutesClient()
-	route, err := mockClient.GetRoute(req.Origin, req.Dest)
+	// Routes APIで距離・時間を取得
+	route, err := h.routeClient.GetRoute(req.Origin, req.Dest)
 	if err != nil {
 		return &ValidationError{Message: "ルート取得エラー: " + err.Error()}
 	}
