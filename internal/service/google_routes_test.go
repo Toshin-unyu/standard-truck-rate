@@ -98,17 +98,20 @@ func TestCachedRouteService_GetRoute_CacheHit(t *testing.T) {
 
 	service := NewCachedRouteService(mockClient, mockRepo, 30*24*time.Hour)
 
-	route, err := service.GetRoute("東京都千代田区", "大阪府大阪市")
+	result, err := service.GetRoute("東京都千代田区", "大阪府大阪市")
 	if err != nil {
 		t.Fatalf("エラーが発生しました: %v", err)
 	}
 
 	// キャッシュの値が返されることを確認
-	if route.DistanceKm != 500.0 {
-		t.Errorf("キャッシュの距離が返されませんでした: %f", route.DistanceKm)
+	if result.Route.DistanceKm != 500.0 {
+		t.Errorf("キャッシュの距離が返されませんでした: %f", result.Route.DistanceKm)
 	}
-	if route.DurationMin != 360 {
-		t.Errorf("キャッシュの所要時間が返されませんでした: %d", route.DurationMin)
+	if result.Route.DurationMin != 360 {
+		t.Errorf("キャッシュの所要時間が返されませんでした: %d", result.Route.DurationMin)
+	}
+	if !result.FromCache {
+		t.Error("FromCacheがtrueであるべきです")
 	}
 }
 
@@ -119,14 +122,17 @@ func TestCachedRouteService_GetRoute_CacheMiss(t *testing.T) {
 
 	service := NewCachedRouteService(mockClient, mockRepo, 30*24*time.Hour)
 
-	route, err := service.GetRoute("東京都千代田区", "大阪府大阪市")
+	result, err := service.GetRoute("東京都千代田区", "大阪府大阪市")
 	if err != nil {
 		t.Fatalf("エラーが発生しました: %v", err)
 	}
 
 	// APIから取得した値が返されることを確認
-	if route.DistanceKm <= 0 {
-		t.Errorf("距離が0以下です: %f", route.DistanceKm)
+	if result.Route.DistanceKm <= 0 {
+		t.Errorf("距離が0以下です: %f", result.Route.DistanceKm)
+	}
+	if result.FromCache {
+		t.Error("FromCacheがfalseであるべきです")
 	}
 
 	// キャッシュに保存されていることを確認
@@ -134,7 +140,7 @@ func TestCachedRouteService_GetRoute_CacheMiss(t *testing.T) {
 	if err != nil {
 		t.Errorf("キャッシュに保存されていません: %v", err)
 	}
-	if cached.DistanceKm != route.DistanceKm {
+	if cached.DistanceKm != result.Route.DistanceKm {
 		t.Errorf("キャッシュの値が一致しません")
 	}
 }
@@ -150,7 +156,7 @@ func TestCachedRouteService_GetRoute_CacheExpired(t *testing.T) {
 
 	service := NewCachedRouteService(mockClient, mockRepo, 30*24*time.Hour)
 
-	route, err := service.GetRoute("東京都千代田区", "大阪府大阪市")
+	result, err := service.GetRoute("東京都千代田区", "大阪府大阪市")
 	if err != nil {
 		t.Fatalf("エラーが発生しました: %v", err)
 	}
@@ -163,8 +169,11 @@ func TestCachedRouteService_GetRoute_CacheExpired(t *testing.T) {
 		t.Errorf("キャッシュが更新されていません")
 	}
 
-	if route.DistanceKm <= 0 {
-		t.Errorf("距離が0以下です: %f", route.DistanceKm)
+	if result.Route.DistanceKm <= 0 {
+		t.Errorf("距離が0以下です: %f", result.Route.DistanceKm)
+	}
+	if result.FromCache {
+		t.Error("FromCacheがfalseであるべきです（期限切れのため）")
 	}
 }
 

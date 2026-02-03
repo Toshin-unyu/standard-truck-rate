@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"html/template"
 	"io"
@@ -115,7 +116,7 @@ func main() {
 	e.Static("/static", "web/static")
 
 	// サービス作成
-	fareCalculator := createFareCalculatorService()
+	fareCalculator := createFareCalculatorService(mainDB)
 
 	// ルートクライアント作成（モック or Google API）
 	var routeClient service.RouteClient
@@ -127,15 +128,15 @@ func main() {
 		routeClient = service.NewMockRoutesClient()
 	}
 
+	// API使用量サービス（ルートハンドラで使用するため先に作成）
+	apiUsageRepo := repository.NewApiUsageRepository(mainDB)
+	apiUsageService := service.NewApiUsageService(apiUsageRepo)
+
 	// ハンドラ
 	highwayHandler := handler.NewHighwayHandler(mainDB, cacheDB)
 	indexHandler := handler.NewIndexHandler()
 	calculateHandler := handler.NewCalculateHandler(fareCalculator)
-	routeHandler := handler.NewRouteHandler(cacheDB, routeClient)
-
-	// API使用量ハンドラ
-	apiUsageRepo := repository.NewApiUsageRepository(mainDB)
-	apiUsageService := service.NewApiUsageService(apiUsageRepo)
+	routeHandler := handler.NewRouteHandler(cacheDB, routeClient, apiUsageService)
 	apiUsageHandler := handler.NewApiUsageHandler(apiUsageService)
 
 	// Routes
@@ -177,7 +178,7 @@ func main() {
 }
 
 // createFareCalculatorService 運賃計算サービスを作成
-func createFareCalculatorService() *service.FareCalculatorService {
+func createFareCalculatorService(mainDB *sql.DB) *service.FareCalculatorService {
 	// Supabase設定
 	supabaseURL := os.Getenv("SUPABASE_URL")
 	supabaseKey := os.Getenv("SUPABASE_ANON_KEY")
@@ -194,8 +195,9 @@ func createFareCalculatorService() *service.FareCalculatorService {
 		distanceFareService = service.NewDistanceFareService(&mockFareGetter{})
 	}
 
-	// 時間制運賃（モック使用 - 本番環境ではJtaTimeFareRepositoryを使用）
-	timeFareService := service.NewTimeFareService(&mockTimeFareGetter{})
+	// 時間制運賃（DBから取得）
+	timeFareRepo := repository.NewJtaTimeFareRepository(mainDB)
+	timeFareService := service.NewTimeFareService(timeFareRepo)
 
 	// 赤帽運賃
 	akabouFareService := service.NewAkabouFareService()

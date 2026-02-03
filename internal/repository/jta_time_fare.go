@@ -145,3 +145,33 @@ func (r *JtaTimeFareRepository) DeleteSurcharge(id int64) error {
 	_, err := r.db.Exec(`DELETE FROM jta_time_surcharges WHERE id = ?`, id)
 	return err
 }
+
+// === TimeFareGetter インターフェース実装 ===
+
+// GetBaseFare 運輸局・車格・時間制で基礎額を取得（TimeFareGetterインターフェース実装）
+func (r *JtaTimeFareRepository) GetBaseFare(regionCode, vehicleCode, hours int) (*model.JtaTimeBaseFare, error) {
+	fare := &model.JtaTimeBaseFare{}
+	err := r.db.QueryRow(`
+		SELECT id, region_code, vehicle_code, hours, base_km, fare_yen
+		FROM jta_time_base_fares
+		WHERE region_code = ? AND vehicle_code = ? AND hours = ?
+	`, regionCode, vehicleCode, hours).Scan(&fare.ID, &fare.RegionCode, &fare.VehicleCode, &fare.Hours, &fare.BaseKm, &fare.FareYen)
+	if err != nil {
+		return nil, err
+	}
+	return fare, nil
+}
+
+// GetSurcharge 運輸局・車格・種別で加算額を取得（TimeFareGetterインターフェース実装）
+func (r *JtaTimeFareRepository) GetSurcharge(regionCode, vehicleCode int, surchargeType string) (*model.JtaTimeSurcharge, error) {
+	surcharge := &model.JtaTimeSurcharge{}
+	err := r.db.QueryRow(`
+		SELECT id, region_code, vehicle_code, surcharge_type, fare_yen
+		FROM jta_time_surcharges
+		WHERE region_code = ? AND vehicle_code = ? AND surcharge_type = ?
+	`, regionCode, vehicleCode, surchargeType).Scan(&surcharge.ID, &surcharge.RegionCode, &surcharge.VehicleCode, &surcharge.SurchargeType, &surcharge.FareYen)
+	if err != nil {
+		return nil, err
+	}
+	return surcharge, nil
+}

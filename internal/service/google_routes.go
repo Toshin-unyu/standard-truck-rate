@@ -275,6 +275,12 @@ func validateRouteInput(origin, dest string) error {
 	return nil
 }
 
+// RouteResult ルート取得結果（キャッシュ情報付き）
+type RouteResult struct {
+	Route     *model.RouteCache
+	FromCache bool
+}
+
 // CachedRouteService キャッシュ付きルートサービス
 type CachedRouteService struct {
 	client   RouteClient
@@ -292,7 +298,7 @@ func NewCachedRouteService(client RouteClient, store RouteCacheStore, cacheTTL t
 }
 
 // GetRoute キャッシュを確認し、なければAPIから取得
-func (s *CachedRouteService) GetRoute(origin, dest string) (*model.RouteCache, error) {
+func (s *CachedRouteService) GetRoute(origin, dest string) (*RouteResult, error) {
 	// バリデーション
 	if err := validateRouteInput(origin, dest); err != nil {
 		return nil, err
@@ -303,7 +309,7 @@ func (s *CachedRouteService) GetRoute(origin, dest string) (*model.RouteCache, e
 	if err == nil && cached != nil {
 		// キャッシュの有効期限をチェック
 		if time.Since(cached.CreatedAt) < s.cacheTTL {
-			return cached, nil
+			return &RouteResult{Route: cached, FromCache: true}, nil
 		}
 	}
 
@@ -319,5 +325,5 @@ func (s *CachedRouteService) GetRoute(origin, dest string) (*model.RouteCache, e
 		// ログに記録するのが望ましいが、ここでは省略
 	}
 
-	return route, nil
+	return &RouteResult{Route: route, FromCache: false}, nil
 }

@@ -13,11 +13,12 @@ import (
 
 // RouteHandler ルート情報ハンドラ
 type RouteHandler struct {
-	routeService *service.CachedRouteService
+	routeService    *service.CachedRouteService
+	apiUsageService *service.ApiUsageService
 }
 
 // NewRouteHandler 新しいRouteHandlerを作成
-func NewRouteHandler(cacheDB *sql.DB, routeClient service.RouteClient) *RouteHandler {
+func NewRouteHandler(cacheDB *sql.DB, routeClient service.RouteClient, apiUsageService *service.ApiUsageService) *RouteHandler {
 	if cacheDB == nil || routeClient == nil {
 		// テスト用: モッククライアントを使用
 		return &RouteHandler{
@@ -26,6 +27,7 @@ func NewRouteHandler(cacheDB *sql.DB, routeClient service.RouteClient) *RouteHan
 				&mockCacheStore{},
 				24*time.Hour,
 			),
+			apiUsageService: apiUsageService,
 		}
 	}
 
@@ -36,6 +38,7 @@ func NewRouteHandler(cacheDB *sql.DB, routeClient service.RouteClient) *RouteHan
 			cacheStore,
 			24*time.Hour,
 		),
+		apiUsageService: apiUsageService,
 	}
 }
 
@@ -77,7 +80,7 @@ func (h *RouteHandler) GetRoute(c echo.Context) error {
 	}
 
 	// ルート情報を取得
-	route, err := h.routeService.GetRoute(origin, dest)
+	result, err := h.routeService.GetRoute(origin, dest)
 	if err != nil {
 		return c.JSON(http.StatusOK, &RouteResponse{
 			Success: false,
@@ -85,13 +88,18 @@ func (h *RouteHandler) GetRoute(c echo.Context) error {
 		})
 	}
 
+	// キャッシュミス時（API呼び出し時）はAPI使用量をカウントアップ
+	if !result.FromCache && h.apiUsageService != nil {
+		_ = h.apiUsageService.IncrementAndCheck()
+	}
+
 	return c.JSON(http.StatusOK, &RouteResponse{
 		Success:     true,
-		Origin:      route.Origin,
-		Dest:        route.Dest,
-		DistanceKm:  route.DistanceKm,
-		DurationMin: route.DurationMin,
-		FromCache:   false,
+		Origin:      result.Route.Origin,
+		Dest:        result.Route.Dest,
+		DistanceKm:  result.Route.DistanceKm,
+		DurationMin: result.Route.DurationMin,
+		FromCache:   result.FromCache,
 	})
 }
 

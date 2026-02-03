@@ -12,7 +12,7 @@ import (
 func TestRouteHandler_GetRoute(t *testing.T) {
 	e := echo.New()
 
-	handler := NewRouteHandler(nil, nil)
+	handler := NewRouteHandler(nil, nil, nil)
 
 	tests := []struct {
 		name           string
