@@ -8,6 +8,7 @@
             <!-- 軽貨物の場合 -->
             <span>車格: <strong>軽貨物/赤帽</strong></span>
             <span>距離: <strong>{{.AkabouDistanceResult.DistanceKm}}km</strong></span>
+            <span>走行時間: <strong>{{formatDuration .DrivingMinutes}}</strong></span>
             {{if .AkabouDistanceResult.Area}}
             <span>赤帽地区: <strong>{{.AkabouDistanceResult.Area}}</strong></span>
             {{end}}

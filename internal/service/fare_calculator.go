@@ -56,6 +56,9 @@ type FareComparisonResult struct {
 	// 車格コード（0=軽貨物, 1-4=トラック）
 	VehicleCode int
 
+	// 共通情報
+	DrivingMinutes int // 走行時間（分）
+
 	// 各運賃の計算結果
 	DistanceFareResult   *DistanceFareResult       // 距離制運賃（トラック用）
 	TimeFareResult       *TimeFareResult           // 時間制運賃（トラック用）
@@ -75,7 +78,8 @@ const VehicleCodeLight = 0
 // 軽貨物（VehicleCode=0）の場合は赤帽のみ、2t以上（VehicleCode=1-4）の場合はトラ協のみを計算
 func (s *FareCalculatorService) CalculateAll(req *FareCalculationRequest) (*FareComparisonResult, error) {
 	result := &FareComparisonResult{
-		VehicleCode: req.VehicleCode,
+		VehicleCode:    req.VehicleCode,
+		DrivingMinutes: req.DrivingMinutes,
 	}
 
 	// 軽貨物（赤帽）の場合
