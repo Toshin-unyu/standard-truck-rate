@@ -71,8 +71,8 @@ func (m *MockFareGetter) GetDistanceFareYen(regionCode, vehicleCode, distanceKm 
 	return 50000, nil
 }
 
-// TestFareCalculatorService_CalculateAll 3運賃一括計算テスト
-func TestFareCalculatorService_CalculateAll(t *testing.T) {
+// TestFareCalculatorService_CalculateAll_Truck トラック（2t以上）の運賃一括計算テスト
+func TestFareCalculatorService_CalculateAll_Truck(t *testing.T) {
 	// サービスを作成
 	distanceFareService := NewDistanceFareService(&MockFareGetter{})
 	timeFareService := NewTimeFareService(&MockTimeFareGetter{})
@@ -83,7 +83,7 @@ func TestFareCalculatorService_CalculateAll(t *testing.T) {
 	// テストケース: 関東・大型車・100km・走行2時間・荷役1時間
 	req := &FareCalculationRequest{
 		RegionCode:      3,  // 関東
-		VehicleCode:     3,  // 大型車
+		VehicleCode:     3,  // 大型車（2t以上なのでトラ協運賃のみ）
 		DistanceKm:      100,
 		DrivingMinutes:  120, // 2時間
 		LoadingMinutes:  60,  // 1時間
@@ -100,7 +100,7 @@ func TestFareCalculatorService_CalculateAll(t *testing.T) {
 
 	// 距離制運賃が計算されていること
 	if result.DistanceFareResult == nil {
-		t.Error("DistanceFareResult should not be nil")
+		t.Error("DistanceFareResult should not be nil for truck")
 	} else {
 		if result.DistanceFareResult.TotalFare <= 0 {
 			t.Error("DistanceFare TotalFare should be > 0")
@@ -109,16 +109,73 @@ func TestFareCalculatorService_CalculateAll(t *testing.T) {
 
 	// 時間制運賃が計算されていること
 	if result.TimeFareResult == nil {
-		t.Error("TimeFareResult should not be nil")
+		t.Error("TimeFareResult should not be nil for truck")
 	} else {
 		if result.TimeFareResult.TotalFare <= 0 {
 			t.Error("TimeFare TotalFare should be > 0")
 		}
 	}
 
+	// トラックの場合、赤帽運賃はnilであること
+	if result.AkabouDistanceResult != nil {
+		t.Error("AkabouDistanceResult should be nil for truck")
+	}
+	if result.AkabouTimeResult != nil {
+		t.Error("AkabouTimeResult should be nil for truck")
+	}
+
+	// ランキングが2件（距離制・時間制のみ）であること
+	if len(result.Rankings) != 2 {
+		t.Errorf("Rankings should have 2 items for truck, got %d", len(result.Rankings))
+	}
+
+	// 最安値が設定されていること
+	if result.CheapestType == "" {
+		t.Error("CheapestType should not be empty")
+	}
+	if result.CheapestFare <= 0 {
+		t.Error("CheapestFare should be > 0")
+	}
+}
+
+// TestFareCalculatorService_CalculateAll_Light 軽貨物の運賃一括計算テスト
+func TestFareCalculatorService_CalculateAll_Light(t *testing.T) {
+	// サービスを作成
+	distanceFareService := NewDistanceFareService(&MockFareGetter{})
+	timeFareService := NewTimeFareService(&MockTimeFareGetter{})
+	akabouFareService := NewAkabouFareService()
+
+	calculator := NewFareCalculatorService(distanceFareService, timeFareService, akabouFareService)
+
+	// テストケース: 軽貨物・100km・走行2時間・荷役1時間
+	req := &FareCalculationRequest{
+		RegionCode:      3,  // 関東
+		VehicleCode:     0,  // 軽貨物（赤帽運賃のみ）
+		DistanceKm:      100,
+		DrivingMinutes:  120, // 2時間
+		LoadingMinutes:  60,  // 1時間
+		IsNight:         false,
+		IsHoliday:       false,
+		UseSimpleBaseKm: false,
+		Area:            "",
+	}
+
+	result, err := calculator.CalculateAll(req)
+	if err != nil {
+		t.Fatalf("CalculateAll failed: %v", err)
+	}
+
+	// 軽貨物の場合、トラ協運賃はnilであること
+	if result.DistanceFareResult != nil {
+		t.Error("DistanceFareResult should be nil for light vehicle")
+	}
+	if result.TimeFareResult != nil {
+		t.Error("TimeFareResult should be nil for light vehicle")
+	}
+
 	// 赤帽運賃（距離制）が計算されていること
 	if result.AkabouDistanceResult == nil {
-		t.Error("AkabouDistanceResult should not be nil")
+		t.Error("AkabouDistanceResult should not be nil for light vehicle")
 	} else {
 		if result.AkabouDistanceResult.TotalFare <= 0 {
 			t.Error("AkabouDistanceFare TotalFare should be > 0")
@@ -127,16 +184,16 @@ func TestFareCalculatorService_CalculateAll(t *testing.T) {
 
 	// 赤帽運賃（時間制）が計算されていること
 	if result.AkabouTimeResult == nil {
-		t.Error("AkabouTimeResult should not be nil")
+		t.Error("AkabouTimeResult should not be nil for light vehicle")
 	} else {
 		if result.AkabouTimeResult.TotalFare <= 0 {
 			t.Error("AkabouTimeFare TotalFare should be > 0")
 		}
 	}
 
-	// ランキングが生成されていること
-	if len(result.Rankings) == 0 {
-		t.Error("Rankings should not be empty")
+	// ランキングが2件（赤帽距離制・時間制のみ）であること
+	if len(result.Rankings) != 2 {
+		t.Errorf("Rankings should have 2 items for light vehicle, got %d", len(result.Rankings))
 	}
 
 	// 最安値が設定されていること
@@ -194,8 +251,8 @@ func TestFareCalculatorService_Rankings(t *testing.T) {
 	}
 }
 
-// TestFareCalculatorService_WithSurcharges 割増適用テスト
-func TestFareCalculatorService_WithSurcharges(t *testing.T) {
+// TestFareCalculatorService_WithSurcharges_Truck トラックの割増適用テスト
+func TestFareCalculatorService_WithSurcharges_Truck(t *testing.T) {
 	distanceFareService := NewDistanceFareService(&MockFareGetter{})
 	timeFareService := NewTimeFareService(&MockTimeFareGetter{})
 	akabouFareService := NewAkabouFareService()
@@ -205,7 +262,7 @@ func TestFareCalculatorService_WithSurcharges(t *testing.T) {
 	// 割増なし
 	reqNoSurcharge := &FareCalculationRequest{
 		RegionCode:      3,
-		VehicleCode:     3,
+		VehicleCode:     3, // 大型車
 		DistanceKm:      100,
 		DrivingMinutes:  120,
 		LoadingMinutes:  60,
@@ -238,20 +295,70 @@ func TestFareCalculatorService_WithSurcharges(t *testing.T) {
 		t.Fatalf("CalculateAll (with surcharge) failed: %v", err)
 	}
 
-	// 割増ありの方が高いこと
+	// 割増ありの方が高いこと（トラ協運賃のみ）
 	if resultWith.DistanceFareResult.TotalFare <= resultNo.DistanceFareResult.TotalFare {
 		t.Error("Distance fare with surcharge should be higher")
 	}
 	if resultWith.TimeFareResult.TotalFare <= resultNo.TimeFareResult.TotalFare {
 		t.Error("Time fare with surcharge should be higher")
 	}
+}
+
+// TestFareCalculatorService_WithSurcharges_Light 軽貨物の割増適用テスト
+func TestFareCalculatorService_WithSurcharges_Light(t *testing.T) {
+	distanceFareService := NewDistanceFareService(&MockFareGetter{})
+	timeFareService := NewTimeFareService(&MockTimeFareGetter{})
+	akabouFareService := NewAkabouFareService()
+
+	calculator := NewFareCalculatorService(distanceFareService, timeFareService, akabouFareService)
+
+	// 割増なし
+	reqNoSurcharge := &FareCalculationRequest{
+		RegionCode:      3,
+		VehicleCode:     0, // 軽貨物
+		DistanceKm:      100,
+		DrivingMinutes:  120,
+		LoadingMinutes:  60,
+		IsNight:         false,
+		IsHoliday:       false,
+		UseSimpleBaseKm: false,
+		Area:            "",
+	}
+
+	// 深夜・休日割増あり
+	reqWithSurcharge := &FareCalculationRequest{
+		RegionCode:      3,
+		VehicleCode:     0,
+		DistanceKm:      100,
+		DrivingMinutes:  120,
+		LoadingMinutes:  60,
+		IsNight:         true,
+		IsHoliday:       true,
+		UseSimpleBaseKm: false,
+		Area:            "",
+	}
+
+	resultNo, err := calculator.CalculateAll(reqNoSurcharge)
+	if err != nil {
+		t.Fatalf("CalculateAll (no surcharge) failed: %v", err)
+	}
+
+	resultWith, err := calculator.CalculateAll(reqWithSurcharge)
+	if err != nil {
+		t.Fatalf("CalculateAll (with surcharge) failed: %v", err)
+	}
+
+	// 割増ありの方が高いこと（赤帽運賃のみ）
 	if resultWith.AkabouDistanceResult.TotalFare <= resultNo.AkabouDistanceResult.TotalFare {
 		t.Error("Akabou distance fare with surcharge should be higher")
 	}
+	if resultWith.AkabouTimeResult.TotalFare <= resultNo.AkabouTimeResult.TotalFare {
+		t.Error("Akabou time fare with surcharge should be higher")
+	}
 }
 
-// TestFareCalculatorService_Breakdown 計算根拠テスト
-func TestFareCalculatorService_Breakdown(t *testing.T) {
+// TestFareCalculatorService_Breakdown_Truck トラックの計算根拠テスト
+func TestFareCalculatorService_Breakdown_Truck(t *testing.T) {
 	distanceFareService := NewDistanceFareService(&MockFareGetter{})
 	timeFareService := NewTimeFareService(&MockTimeFareGetter{})
 	akabouFareService := NewAkabouFareService()
@@ -260,7 +367,7 @@ func TestFareCalculatorService_Breakdown(t *testing.T) {
 
 	req := &FareCalculationRequest{
 		RegionCode:      3,
-		VehicleCode:     3,
+		VehicleCode:     3, // 大型車
 		DistanceKm:      100,
 		DrivingMinutes:  120,
 		LoadingMinutes:  60,
@@ -281,19 +388,57 @@ func TestFareCalculatorService_Breakdown(t *testing.T) {
 		t.Error("Breakdown should not be empty")
 	}
 
-	// 各運賃の情報が含まれていること
+	// トラ協運賃の情報が含まれていること
 	if !containsString(breakdown, "距離制") {
 		t.Error("Breakdown should contain 距離制")
 	}
 	if !containsString(breakdown, "時間制") {
 		t.Error("Breakdown should contain 時間制")
 	}
-	if !containsString(breakdown, "赤帽") {
-		t.Error("Breakdown should contain 赤帽")
+	// トラックの場合、赤帽は含まれないこと
+	if containsString(breakdown, "赤帽") {
+		t.Error("Breakdown should not contain 赤帽 for truck")
 	}
 }
 
-// TestFareCalculatorService_AreaSurcharge 地区割増テスト
+// TestFareCalculatorService_Breakdown_Light 軽貨物の計算根拠テスト
+func TestFareCalculatorService_Breakdown_Light(t *testing.T) {
+	distanceFareService := NewDistanceFareService(&MockFareGetter{})
+	timeFareService := NewTimeFareService(&MockTimeFareGetter{})
+	akabouFareService := NewAkabouFareService()
+
+	calculator := NewFareCalculatorService(distanceFareService, timeFareService, akabouFareService)
+
+	req := &FareCalculationRequest{
+		RegionCode:      3,
+		VehicleCode:     0, // 軽貨物
+		DistanceKm:      100,
+		DrivingMinutes:  120,
+		LoadingMinutes:  60,
+		IsNight:         false,
+		IsHoliday:       false,
+		UseSimpleBaseKm: false,
+		Area:            "",
+	}
+
+	result, err := calculator.CalculateAll(req)
+	if err != nil {
+		t.Fatalf("CalculateAll failed: %v", err)
+	}
+
+	// 計算根拠が生成されること
+	breakdown := result.Breakdown()
+	if breakdown == "" {
+		t.Error("Breakdown should not be empty")
+	}
+
+	// 赤帽運賃の情報が含まれていること
+	if !containsString(breakdown, "赤帽") {
+		t.Error("Breakdown should contain 赤帽 for light vehicle")
+	}
+}
+
+// TestFareCalculatorService_AreaSurcharge 地区割増テスト（軽貨物）
 func TestFareCalculatorService_AreaSurcharge(t *testing.T) {
 	distanceFareService := NewDistanceFareService(&MockFareGetter{})
 	timeFareService := NewTimeFareService(&MockTimeFareGetter{})
@@ -304,7 +449,7 @@ func TestFareCalculatorService_AreaSurcharge(t *testing.T) {
 	// 地区割増なし
 	reqNoArea := &FareCalculationRequest{
 		RegionCode:      3,
-		VehicleCode:     3,
+		VehicleCode:     0, // 軽貨物（地区割増は赤帽のみ適用）
 		DistanceKm:      50,
 		DrivingMinutes:  60,
 		LoadingMinutes:  30,
@@ -317,7 +462,7 @@ func TestFareCalculatorService_AreaSurcharge(t *testing.T) {
 	// 東京23区（地区割増あり）
 	reqTokyo := &FareCalculationRequest{
 		RegionCode:      3,
-		VehicleCode:     3,
+		VehicleCode:     0, // 軽貨物
 		DistanceKm:      50,
 		DrivingMinutes:  60,
 		LoadingMinutes:  30,

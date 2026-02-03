@@ -348,8 +348,8 @@ func (h *CalculateHandler) validateRequest(req *CalculateRequest) error {
 	if req.RegionCode < 1 || req.RegionCode > 10 {
 		return &ValidationError{Message: "運輸局コードが不正です（1-10）"}
 	}
-	if req.VehicleCode < 1 || req.VehicleCode > 4 {
-		return &ValidationError{Message: "車格コードが不正です（1-4）"}
+	if req.VehicleCode < 0 || req.VehicleCode > 4 {
+		return &ValidationError{Message: "車格コードが不正です（0-4）"}
 	}
 	if req.DrivingMinutes <= 0 {
 		return &ValidationError{Message: "走行時間を1分以上で入力してください"}
@@ -408,6 +408,8 @@ func (m *mockTimeFareGetter) GetSurcharge(regionCode, vehicleCode int, surcharge
 // vehicleCodeToHighwayCarType 車格コードから高速料金車種を自動マッピング
 func vehicleCodeToHighwayCarType(vehicleCode int) int {
 	switch vehicleCode {
+	case 0: // 軽貨物/赤帽
+		return model.CarTypeLight // 軽自動車等
 	case 1: // 小型車（2t）
 		return model.CarTypeNormal // 普通車
 	case 2: // 中型車（4t）

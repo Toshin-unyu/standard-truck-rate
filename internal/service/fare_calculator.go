@@ -53,11 +53,14 @@ type FareRanking struct {
 
 // FareComparisonResult 運賃比較結果
 type FareComparisonResult struct {
+	// 車格コード（0=軽貨物, 1-4=トラック）
+	VehicleCode int
+
 	// 各運賃の計算結果
-	DistanceFareResult   *DistanceFareResult       // 距離制運賃
-	TimeFareResult       *TimeFareResult           // 時間制運賃
-	AkabouDistanceResult *AkabouDistanceFareResult // 赤帽運賃（距離制）
-	AkabouTimeResult     *AkabouTimeFareResult     // 赤帽運賃（時間制）
+	DistanceFareResult   *DistanceFareResult       // 距離制運賃（トラック用）
+	TimeFareResult       *TimeFareResult           // 時間制運賃（トラック用）
+	AkabouDistanceResult *AkabouDistanceFareResult // 赤帽運賃（距離制、軽貨物用）
+	AkabouTimeResult     *AkabouTimeFareResult     // 赤帽運賃（時間制、軽貨物用）
 
 	// 比較・ランキング
 	Rankings     []FareRanking // 金額順ランキング
@@ -65,69 +68,81 @@ type FareComparisonResult struct {
 	CheapestFare int           // 最安運賃額（円）
 }
 
-// CalculateAll 3運賃を一括計算する
+// VehicleCodeLight 軽貨物/赤帽の車格コード
+const VehicleCodeLight = 0
+
+// CalculateAll 運賃を一括計算する
+// 軽貨物（VehicleCode=0）の場合は赤帽のみ、2t以上（VehicleCode=1-4）の場合はトラ協のみを計算
 func (s *FareCalculatorService) CalculateAll(req *FareCalculationRequest) (*FareComparisonResult, error) {
-	result := &FareComparisonResult{}
-
-	// 1. 距離制運賃を計算
-	distanceResult, err := s.distanceFare.Calculate(
-		req.RegionCode,
-		req.VehicleCode,
-		req.DistanceKm,
-		req.IsNight,
-		req.IsHoliday,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("距離制運賃計算エラー: %w", err)
+	result := &FareComparisonResult{
+		VehicleCode: req.VehicleCode,
 	}
-	result.DistanceFareResult = distanceResult
 
-	// 2. 時間制運賃を計算
-	timeResult, err := s.timeFare.Calculate(
-		req.RegionCode,
-		req.VehicleCode,
-		req.DistanceKm,
-		req.DrivingMinutes,
-		req.LoadingMinutes,
-		req.IsNight,
-		req.IsHoliday,
-		req.UseSimpleBaseKm,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("時間制運賃計算エラー: %w", err)
+	// 軽貨物（赤帽）の場合
+	if req.VehicleCode == VehicleCodeLight {
+		// 赤帽運賃（距離制）を計算
+		akabouDistanceResult, err := s.akabouFare.CalculateDistanceFare(
+			req.DistanceKm,
+			req.IsNight,
+			req.IsHoliday,
+			req.Area,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("赤帽距離制運賃計算エラー: %w", err)
+		}
+		result.AkabouDistanceResult = akabouDistanceResult
+
+		// 赤帽運賃（時間制）を計算
+		totalMinutes := req.DrivingMinutes + req.LoadingMinutes
+		akabouTimeResult, err := s.akabouFare.CalculateTimeFare(
+			totalMinutes,
+			req.IsNight,
+			req.IsHoliday,
+			req.Area,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("赤帽時間制運賃計算エラー: %w", err)
+		}
+		result.AkabouTimeResult = akabouTimeResult
+
+		// ランキングを生成（赤帽のみ）
+		result.Rankings = s.createRankingsForLight(result)
+	} else {
+		// 2t以上（トラ協）の場合
+		// 距離制運賃を計算
+		distanceResult, err := s.distanceFare.Calculate(
+			req.RegionCode,
+			req.VehicleCode,
+			req.DistanceKm,
+			req.IsNight,
+			req.IsHoliday,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("距離制運賃計算エラー: %w", err)
+		}
+		result.DistanceFareResult = distanceResult
+
+		// 時間制運賃を計算
+		timeResult, err := s.timeFare.Calculate(
+			req.RegionCode,
+			req.VehicleCode,
+			req.DistanceKm,
+			req.DrivingMinutes,
+			req.LoadingMinutes,
+			req.IsNight,
+			req.IsHoliday,
+			req.UseSimpleBaseKm,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("時間制運賃計算エラー: %w", err)
+		}
+		result.TimeFareResult = timeResult
+
+		// ランキングを生成（トラ協のみ）
+		result.Rankings = s.createRankingsForTruck(result)
 	}
-	result.TimeFareResult = timeResult
 
-	// 3. 赤帽運賃（距離制）を計算
-	akabouDistanceResult, err := s.akabouFare.CalculateDistanceFare(
-		req.DistanceKm,
-		req.IsNight,
-		req.IsHoliday,
-		req.Area,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("赤帽距離制運賃計算エラー: %w", err)
-	}
-	result.AkabouDistanceResult = akabouDistanceResult
-
-	// 4. 赤帽運賃（時間制）を計算
-	// 総作業時間 = 走行時間 + 荷役時間
-	totalMinutes := req.DrivingMinutes + req.LoadingMinutes
-	akabouTimeResult, err := s.akabouFare.CalculateTimeFare(
-		totalMinutes,
-		req.IsNight,
-		req.IsHoliday,
-		req.Area,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("赤帽時間制運賃計算エラー: %w", err)
-	}
-	result.AkabouTimeResult = akabouTimeResult
-
-	// 5. ランキングを生成
-	result.Rankings = s.createRankings(result)
-
-	// 6. 最安値を設定
+	// 最安値を設定
 	if len(result.Rankings) > 0 {
 		result.CheapestType = result.Rankings[0].Type
 		result.CheapestFare = result.Rankings[0].Fare
@@ -136,13 +151,31 @@ func (s *FareCalculatorService) CalculateAll(req *FareCalculationRequest) (*Fare
 	return result, nil
 }
 
-// createRankings ランキングを生成（金額昇順）
-func (s *FareCalculatorService) createRankings(result *FareComparisonResult) []FareRanking {
+// createRankingsForLight 軽貨物用ランキングを生成（赤帽のみ）
+func (s *FareCalculatorService) createRankingsForLight(result *FareComparisonResult) []FareRanking {
+	rankings := []FareRanking{
+		{Type: "赤帽（距離制）", Fare: result.AkabouDistanceResult.TotalFare},
+		{Type: "赤帽（時間制）", Fare: result.AkabouTimeResult.TotalFare},
+	}
+
+	// 金額昇順でソート
+	sort.Slice(rankings, func(i, j int) bool {
+		return rankings[i].Fare < rankings[j].Fare
+	})
+
+	// 順位を設定
+	for i := range rankings {
+		rankings[i].Rank = i + 1
+	}
+
+	return rankings
+}
+
+// createRankingsForTruck 2t以上用ランキングを生成（トラ協のみ）
+func (s *FareCalculatorService) createRankingsForTruck(result *FareComparisonResult) []FareRanking {
 	rankings := []FareRanking{
 		{Type: "距離制", Fare: result.DistanceFareResult.TotalFare},
 		{Type: "時間制", Fare: result.TimeFareResult.TotalFare},
-		{Type: "赤帽（距離制）", Fare: result.AkabouDistanceResult.TotalFare},
-		{Type: "赤帽（時間制）", Fare: result.AkabouTimeResult.TotalFare},
 	}
 
 	// 金額昇順でソート
@@ -175,15 +208,20 @@ func (r *FareComparisonResult) Breakdown() string {
 	}
 	result += "\n"
 
-	// 各運賃の詳細
-	result += "----------------------------------------\n"
-	result += r.DistanceFareResult.Breakdown()
-	result += "\n----------------------------------------\n"
-	result += r.TimeFareResult.Breakdown()
-	result += "\n----------------------------------------\n"
-	result += r.AkabouDistanceResult.Breakdown()
-	result += "\n----------------------------------------\n"
-	result += r.AkabouTimeResult.Breakdown()
+	// 各運賃の詳細（車格に応じて表示）
+	if r.VehicleCode == VehicleCodeLight {
+		// 軽貨物: 赤帽のみ
+		result += "----------------------------------------\n"
+		result += r.AkabouDistanceResult.Breakdown()
+		result += "\n----------------------------------------\n"
+		result += r.AkabouTimeResult.Breakdown()
+	} else {
+		// トラック: トラ協のみ
+		result += "----------------------------------------\n"
+		result += r.DistanceFareResult.Breakdown()
+		result += "\n----------------------------------------\n"
+		result += r.TimeFareResult.Breakdown()
+	}
 
 	return result
 }
