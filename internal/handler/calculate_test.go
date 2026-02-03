@@ -182,3 +182,98 @@ func TestCalculateHandler_CalculateJSON(t *testing.T) {
 		})
 	}
 }
+
+// TestCalculateHandler_CalculateWithRoute 出発地/目的地入力ベースの運賃計算テスト
+func TestCalculateHandler_CalculateWithRoute(t *testing.T) {
+	e := echo.New()
+	renderer := &mockRenderer{}
+	e.Renderer = renderer
+
+	handler := NewCalculateHandler(nil)
+
+	tests := []struct {
+		name           string
+		formData       url.Values
+		wantStatusCode int
+		wantTemplate   string
+	}{
+		{
+			name: "出発地/目的地から運賃計算（東京→大阪）",
+			formData: url.Values{
+				"origin":          {"東京都千代田区丸の内1-1-1"},
+				"dest":            {"大阪府大阪市中央区"},
+				"vehicle_code":    {"3"},
+				"loading_minutes": {"60"},
+			},
+			wantStatusCode: http.StatusOK,
+			wantTemplate:   "result",
+		},
+		{
+			name: "出発地/目的地から運賃計算（東京23区、赤帽地区割増）",
+			formData: url.Values{
+				"origin":          {"東京都新宿区西新宿"},
+				"dest":            {"神奈川県横浜市中区"},
+				"vehicle_code":    {"1"},
+				"loading_minutes": {"30"},
+			},
+			wantStatusCode: http.StatusOK,
+			wantTemplate:   "result",
+		},
+		{
+			name: "出発地/目的地から運賃計算（大阪市内、深夜割増）",
+			formData: url.Values{
+				"origin":          {"大阪府大阪市北区梅田"},
+				"dest":            {"京都府京都市"},
+				"vehicle_code":    {"2"},
+				"loading_minutes": {"60"},
+				"is_night":        {"true"},
+			},
+			wantStatusCode: http.StatusOK,
+			wantTemplate:   "result",
+		},
+		{
+			name: "出発地が未入力の場合エラー",
+			formData: url.Values{
+				"dest":            {"大阪府大阪市中央区"},
+				"vehicle_code":    {"3"},
+				"loading_minutes": {"60"},
+			},
+			wantStatusCode: http.StatusOK,
+			wantTemplate:   "error",
+		},
+		{
+			name: "目的地が未入力の場合エラー",
+			formData: url.Values{
+				"origin":          {"東京都千代田区丸の内1-1-1"},
+				"vehicle_code":    {"3"},
+				"loading_minutes": {"60"},
+			},
+			wantStatusCode: http.StatusOK,
+			wantTemplate:   "error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/api/fare/calculate",
+				strings.NewReader(tt.formData.Encode()))
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+
+			err := handler.Calculate(c)
+			if err != nil {
+				t.Errorf("Calculate() error = %v", err)
+				return
+			}
+
+			if rec.Code != tt.wantStatusCode {
+				t.Errorf("Calculate() status = %v, want %v", rec.Code, tt.wantStatusCode)
+			}
+
+			if renderer.lastTemplate != tt.wantTemplate {
+				t.Errorf("Calculate() template = %v, want %v", renderer.lastTemplate, tt.wantTemplate)
+			}
+		})
+	}
+}

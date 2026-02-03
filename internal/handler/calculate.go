@@ -40,10 +40,17 @@ func createMockFareCalculator() *service.FareCalculatorService {
 
 // CalculateRequest 運賃計算リクエスト
 type CalculateRequest struct {
-	RegionCode      int    `form:"region_code"`
+	// 新UI: 出発地/目的地入力
+	Origin string `form:"origin"` // 出発地（住所）
+	Dest   string `form:"dest"`   // 目的地（住所）
+
+	// 旧UI互換: 直接指定（origin/destが指定されていない場合に使用）
+	RegionCode     int `form:"region_code"`
+	DistanceKm     int `form:"distance_km"`
+	DrivingMinutes int `form:"driving_minutes"`
+
+	// 共通パラメータ
 	VehicleCode     int    `form:"vehicle_code"`
-	DistanceKm      int    `form:"distance_km"`
-	DrivingMinutes  int    `form:"driving_minutes"`
 	LoadingMinutes  int    `form:"loading_minutes"`
 	IsNight         bool   `form:"is_night"`
 	IsHoliday       bool   `form:"is_holiday"`
@@ -119,6 +126,10 @@ func (h *CalculateHandler) CalculateJSON(c echo.Context) error {
 func (h *CalculateHandler) parseRequest(c echo.Context) (*CalculateRequest, error) {
 	req := &CalculateRequest{}
 
+	// 出発地/目的地（新UI）
+	req.Origin = c.FormValue("origin")
+	req.Dest = c.FormValue("dest")
+
 	// 各フィールドを手動でパース（デフォルト値対応）
 	if v := c.FormValue("region_code"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
@@ -163,7 +174,47 @@ func (h *CalculateHandler) parseRequest(c echo.Context) (*CalculateRequest, erro
 	req.UseSimpleBaseKm = c.FormValue("use_simple_base_km") == "true"
 	req.Area = c.FormValue("area")
 
+	// origin/dest が指定されている場合、ルート情報から距離・時間・運輸局を取得
+	if req.Origin != "" && req.Dest != "" {
+		if err := h.resolveRouteInfo(req); err != nil {
+			return nil, err
+		}
+	}
+
 	return req, nil
+}
+
+// resolveRouteInfo 出発地/目的地からルート情報を取得してリクエストに設定
+func (h *CalculateHandler) resolveRouteInfo(req *CalculateRequest) error {
+	// 出発地から都道府県を抽出
+	prefecture, ok := service.ExtractPrefectureFromAddress(req.Origin)
+	if !ok {
+		return &ValidationError{Message: "出発地の都道府県を特定できません: " + req.Origin}
+	}
+
+	// 都道府県から運輸局コードを取得
+	regionCode, err := service.ResolveRegionCode(prefecture)
+	if err != nil {
+		return &ValidationError{Message: "運輸局を特定できません: " + prefecture}
+	}
+	req.RegionCode = regionCode
+
+	// 赤帽地区を判定
+	if req.Area == "" {
+		req.Area = service.ResolveAkabouArea(req.Origin)
+	}
+
+	// モックルートサービスから距離・時間を取得
+	mockClient := service.NewMockRoutesClient()
+	route, err := mockClient.GetRoute(req.Origin, req.Dest)
+	if err != nil {
+		return &ValidationError{Message: "ルート取得エラー: " + err.Error()}
+	}
+
+	req.DistanceKm = int(route.DistanceKm)
+	req.DrivingMinutes = route.DurationMin
+
+	return nil
 }
 
 // validateRequest リクエストをバリデーション

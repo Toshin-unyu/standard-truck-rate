@@ -51,6 +51,11 @@ type RouteResponse struct {
 	DistanceKm  float64 `json:"distance_km"`
 	DurationMin int     `json:"duration_min"`
 	FromCache   bool    `json:"from_cache"`
+	// 運輸局・地区判定情報（出発地ベース）
+	Prefecture string `json:"prefecture"`   // 都道府県
+	RegionCode int    `json:"region_code"`  // 運輸局コード（1-10）
+	RegionName string `json:"region_name"`  // 運輸局名
+	AkabouArea string `json:"akabou_area"`  // 赤帽地区（東京23区/大阪市内/空文字）
 }
 
 // GetRoute ルート情報を取得するAPI
@@ -93,6 +98,9 @@ func (h *RouteHandler) GetRoute(c echo.Context) error {
 		_ = h.apiUsageService.IncrementAndCheck()
 	}
 
+	// 出発地から都道府県・運輸局情報を取得
+	prefecture, regionCode, regionName, akabouArea := resolveRegionInfo(origin)
+
 	return c.JSON(http.StatusOK, &RouteResponse{
 		Success:     true,
 		Origin:      result.Route.Origin,
@@ -100,7 +108,40 @@ func (h *RouteHandler) GetRoute(c echo.Context) error {
 		DistanceKm:  result.Route.DistanceKm,
 		DurationMin: result.Route.DurationMin,
 		FromCache:   result.FromCache,
+		Prefecture:  prefecture,
+		RegionCode:  regionCode,
+		RegionName:  regionName,
+		AkabouArea:  akabouArea,
 	})
+}
+
+// resolveRegionInfo 住所から運輸局情報を取得
+func resolveRegionInfo(address string) (prefecture string, regionCode int, regionName string, akabouArea string) {
+	// 住所から都道府県を抽出
+	pref, ok := service.ExtractPrefectureFromAddress(address)
+	if !ok {
+		return "", 0, "", ""
+	}
+	prefecture = pref
+
+	// 都道府県から運輸局コードを取得
+	code, err := service.ResolveRegionCode(prefecture)
+	if err != nil {
+		return prefecture, 0, "", ""
+	}
+	regionCode = code
+
+	// 都道府県から運輸局名を取得
+	name, err := service.ResolveRegionName(prefecture)
+	if err != nil {
+		return prefecture, regionCode, "", ""
+	}
+	regionName = name
+
+	// 赤帽地区を判定
+	akabouArea = service.ResolveAkabouArea(address)
+
+	return prefecture, regionCode, regionName, akabouArea
 }
 
 // mockCacheStore テスト用のモックキャッシュストア

@@ -1,5 +1,18 @@
 {{define "result"}}
 <div class="space-y-6">
+    <!-- 自動取得情報 -->
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h2 class="text-sm font-semibold text-blue-800 mb-2">自動取得情報</h2>
+        <div class="flex flex-wrap gap-x-6 gap-y-1 text-sm text-blue-700">
+            <span>運輸局: <strong>{{regionName .DistanceFareResult.RegionCode}}</strong></span>
+            <span>距離: <strong>{{.DistanceFareResult.DistanceKm}}km</strong></span>
+            <span>走行時間: <strong>{{formatDuration .TimeFareResult.DrivingMinutes}}</strong></span>
+            {{if .AkabouDistanceResult.Area}}
+            <span>赤帽地区: <strong>{{.AkabouDistanceResult.Area}}</strong></span>
+            {{end}}
+        </div>
+    </div>
+
     <!-- ランキング表示 -->
     <div class="bg-white rounded-lg shadow-md p-6">
         <h2 class="text-lg font-semibold text-gray-700 mb-4">運賃比較ランキング</h2>
