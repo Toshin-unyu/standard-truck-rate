@@ -112,18 +112,28 @@ func (c *JtaSupabaseClient) setHeaders(req *http.Request) {
 }
 
 // RoundDistance 距離を運賃計算用に丸める
-// 距離 ≤ 200km  → 10km単位で切り上げ
-// 距離 ≤ 500km  → 20km単位で切り上げ
-// 距離 > 500km  → 50km単位で切り上げ
-// ※沖縄(regionCode=10)は特別ルールあり（未実装）
+// 通常地域（region_code 1-9）:
+//   距離 ≤ 200km  → 10km単位で切り上げ
+//   距離 ≤ 500km  → 20km単位で切り上げ
+//   距離 > 500km  → 50km単位で切り上げ
+// 沖縄(region_code=10):
+//   距離 ≤ 10km   → 5km単位で切り上げ
+//   距離 ≤ 200km  → 10km単位で切り上げ
+//   距離 > 200km  → 20km単位で切り上げ（最大300km）
 func RoundDistance(distanceKm, regionCode int) int {
-	// TODO: 沖縄の特別ルール対応
 	if regionCode == 10 {
-		// 沖縄は5km, 10km区分（詳細要確認）
-		// 暫定的に10km単位で切り上げ
-		return roundUp(distanceKm, 10)
+		// 沖縄の特別ルール
+		switch {
+		case distanceKm <= 10:
+			return roundUp(distanceKm, 5)
+		case distanceKm <= 200:
+			return roundUp(distanceKm, 10)
+		default:
+			return roundUp(distanceKm, 20)
+		}
 	}
 
+	// 通常地域（北海道〜九州）
 	switch {
 	case distanceKm <= 200:
 		return roundUp(distanceKm, 10)
