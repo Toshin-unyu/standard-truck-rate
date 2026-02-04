@@ -48,8 +48,6 @@
                     <span class="text-2xl font-bold {{if eq .Rank 1}}text-green-600{{else}}text-gray-800{{end}}">&yen;{{formatNumber .Fare}}</span>
                     {{if eq .Rank 1}}
                     <div class="text-xs text-green-600 mt-1">最安</div>
-                    {{else}}
-                    <div class="text-xs text-gray-500 mt-1">+&yen;{{formatNumber (sub .Fare $minFare)}}</div>
                     {{end}}
                 </div>
 
