@@ -465,13 +465,13 @@ func (h *CalculateHandler) fetchHighwayToll(originIC, destIC string, carType int
 
 // buildHighwayTollInfo HighwayTollからHighwayTollInfoを作成
 func buildHighwayTollInfo(toll *model.HighwayToll, fromCache bool) *HighwayTollInfo {
-	// 選択オプションと一致する車種名
+	// 高速道路の車種区分名
 	carTypeNames := map[int]string{
-		0: "軽貨物/赤帽",
-		1: "小型車（2t）",
-		2: "中型車（4t）",
-		3: "大型車（10t）",
-		4: "トレーラー（20t）",
+		0: "軽自動車等",
+		1: "普通車",
+		2: "中型車",
+		3: "大型車",
+		4: "特大車",
 	}
 
 	return &HighwayTollInfo{
