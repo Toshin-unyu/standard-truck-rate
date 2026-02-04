@@ -144,10 +144,14 @@ func main() {
 	apiUsageRepo := repository.NewApiUsageRepository(mainDB)
 	apiUsageService := service.NewApiUsageService(apiUsageRepo)
 
+	// キャッシュ付きルートサービス（CalculateHandler と RouteHandler で共有）
+	routeCacheRepo := repository.NewRouteCacheRepository(cacheDB)
+	cachedRouteService := service.NewCachedRouteService(routeClient, routeCacheRepo, 0) // TTL=0: 無期限
+
 	// ハンドラ
 	highwayHandler := handler.NewHighwayHandler(mainDB, cacheDB)
 	indexHandler := handler.NewIndexHandler()
-	calculateHandler := handler.NewCalculateHandler(fareCalculator, routeClient, geocodingClient, mainDB, cacheDB)
+	calculateHandler := handler.NewCalculateHandler(fareCalculator, cachedRouteService, apiUsageService, geocodingClient, mainDB, cacheDB)
 	routeHandler := handler.NewRouteHandler(cacheDB, routeClient, apiUsageService)
 	apiUsageHandler := handler.NewApiUsageHandler(apiUsageService)
 

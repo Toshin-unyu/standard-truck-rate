@@ -13,9 +13,10 @@ import (
 
 // CalculateHandler 運賃計算ハンドラ
 type CalculateHandler struct {
-	fareCalculator   *service.FareCalculatorService
-	routeClient      service.RouteClient
-	geocodingClient  service.GeocodingClient
+	fareCalculator     *service.FareCalculatorService
+	cachedRouteService *service.CachedRouteService
+	apiUsageService    *service.ApiUsageService
+	geocodingClient    service.GeocodingClient
 	// 高速料金関連
 	icRepo     *repository.HighwayICRepository
 	tollRepo   *repository.HighwayTollRepository
@@ -23,22 +24,20 @@ type CalculateHandler struct {
 }
 
 // NewCalculateHandler 新しいCalculateHandlerを作成
-func NewCalculateHandler(fareCalculator *service.FareCalculatorService, routeClient service.RouteClient, geocodingClient service.GeocodingClient, mainDB, cacheDB *sql.DB) *CalculateHandler {
+func NewCalculateHandler(fareCalculator *service.FareCalculatorService, cachedRouteService *service.CachedRouteService, apiUsageService *service.ApiUsageService, geocodingClient service.GeocodingClient, mainDB, cacheDB *sql.DB) *CalculateHandler {
 	// デフォルト値の設定
 	if fareCalculator == nil {
 		fareCalculator = createMockFareCalculator()
-	}
-	if routeClient == nil {
-		routeClient = service.NewMockRoutesClient()
 	}
 	if geocodingClient == nil {
 		geocodingClient = service.NewMockGeocodingClient()
 	}
 
 	h := &CalculateHandler{
-		fareCalculator:  fareCalculator,
-		routeClient:     routeClient,
-		geocodingClient: geocodingClient,
+		fareCalculator:     fareCalculator,
+		cachedRouteService: cachedRouteService,
+		apiUsageService:    apiUsageService,
+		geocodingClient:    geocodingClient,
 	}
 
 	// 高速料金関連（DBが渡された場合のみ初期化）
@@ -342,14 +341,23 @@ func (h *CalculateHandler) resolveRouteInfo(req *CalculateRequest) error {
 		}
 	}
 
-	// Routes APIで距離・時間を取得
-	route, err := h.routeClient.GetRoute(req.Origin, req.Dest)
+	// Routes APIで距離・時間を取得（キャッシュ付き）
+	if h.cachedRouteService == nil {
+		return &ValidationError{Message: "ルートサービスが初期化されていません"}
+	}
+
+	result, err := h.cachedRouteService.GetRoute(req.Origin, req.Dest)
 	if err != nil {
 		return &ValidationError{Message: "ルート取得エラー: " + err.Error()}
 	}
 
-	req.DistanceKm = int(route.DistanceKm)
-	req.DrivingMinutes = route.DurationMin
+	// キャッシュミス時（API呼び出し時）はAPI使用量をカウントアップ
+	if !result.FromCache && h.apiUsageService != nil {
+		_ = h.apiUsageService.IncrementAndCheck()
+	}
+
+	req.DistanceKm = int(result.Route.DistanceKm)
+	req.DrivingMinutes = result.Route.DurationMin
 
 	return nil
 }
