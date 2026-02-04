@@ -79,35 +79,50 @@
             <p>{{.HighwayError}}</p>
         </div>
         {{else if .HighwayToll}}
-        <div class="space-y-3">
-            <div class="flex justify-between border-b pb-2">
-                <span class="text-gray-600">区間</span>
-                <span class="font-medium">{{.HighwayToll.OriginIC}} → {{.HighwayToll.DestIC}}</span>
+        <div class="space-y-4">
+            <!-- 区間情報（1行表示） -->
+            <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm pb-3 border-b border-gray-200">
+                <span class="font-medium text-gray-800">{{.HighwayToll.OriginIC}}</span>
+                <span class="text-gray-400">→</span>
+                <span class="font-medium text-gray-800">{{.HighwayToll.DestIC}}</span>
+                <span class="text-gray-300 hidden sm:inline">|</span>
+                <span class="text-gray-600">{{.HighwayToll.CarTypeName}}</span>
+                <span class="text-gray-300 hidden sm:inline">|</span>
+                <span class="text-gray-600">{{printf "%.1f" .HighwayToll.DistanceKm}}km</span>
+                {{if gt .HighwayToll.DurationMin 0}}
+                <span class="text-gray-300 hidden sm:inline">|</span>
+                <span class="text-gray-600">約{{formatDuration .HighwayToll.DurationMin}}</span>
+                {{end}}
             </div>
-            <div class="flex justify-between border-b pb-2">
-                <span class="text-gray-600">車種</span>
-                <span class="font-medium">{{.HighwayToll.CarTypeName}}</span>
-            </div>
-            <div class="flex justify-between border-b pb-2">
-                <span class="text-gray-600">高速距離</span>
-                <span class="font-medium">{{printf "%.1f" .HighwayToll.DistanceKm}} km</span>
-            </div>
-            <div class="mt-4 pt-2">
-                <div class="grid grid-cols-3 gap-3 text-center">
-                    <div class="bg-gray-50 p-3 rounded-lg">
-                        <div class="text-xs text-gray-500 mb-1">通常料金</div>
-                        <div class="text-lg font-bold text-gray-800">&yen;{{formatNumber .HighwayToll.NormalToll}}</div>
-                    </div>
-                    <div class="bg-blue-50 p-3 rounded-lg">
-                        <div class="text-xs text-blue-600 mb-1">ETC料金</div>
-                        <div class="text-lg font-bold text-blue-700">&yen;{{formatNumber .HighwayToll.EtcToll}}</div>
-                    </div>
-                    <div class="bg-green-50 p-3 rounded-lg">
-                        <div class="text-xs text-green-600 mb-1">ETC2.0</div>
-                        <div class="text-lg font-bold text-green-700">&yen;{{formatNumber .HighwayToll.Etc2Toll}}</div>
-                    </div>
+
+            <!-- 料金3区分（グリッド） -->
+            <div class="grid grid-cols-3 gap-3 text-center">
+                <!-- 通常料金 -->
+                <div class="bg-gray-50 p-3 rounded-lg">
+                    <div class="text-xs text-gray-500 mb-1">通常料金</div>
+                    <div class="text-lg font-bold text-gray-800">&yen;{{formatNumber .HighwayToll.NormalToll}}</div>
+                </div>
+                <!-- ETC料金 -->
+                <div class="bg-blue-50 p-3 rounded-lg">
+                    <div class="text-xs text-blue-600 mb-1">ETC料金</div>
+                    <div class="text-lg font-bold text-blue-700">&yen;{{formatNumber .HighwayToll.EtcToll}}</div>
+                    {{if gt .HighwayToll.NormalToll 0}}
+                    <div class="text-xs text-blue-500 mt-1">&yen;{{formatNumber (sub .HighwayToll.NormalToll .HighwayToll.EtcToll)}}お得</div>
+                    {{end}}
+                </div>
+                <!-- ETC2.0（最安バッジ付き） -->
+                <div class="relative bg-green-50 p-3 rounded-lg border-2 border-green-400">
+                    {{if le .HighwayToll.Etc2Toll .HighwayToll.EtcToll}}
+                    <div class="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-green-500 text-white text-xs font-bold rounded whitespace-nowrap">最安</div>
+                    {{end}}
+                    <div class="text-xs text-green-600 mb-1">ETC2.0</div>
+                    <div class="text-lg font-bold text-green-700">&yen;{{formatNumber .HighwayToll.Etc2Toll}}</div>
+                    {{if gt .HighwayToll.NormalToll 0}}
+                    <div class="text-xs text-green-500 mt-1">&yen;{{formatNumber (sub .HighwayToll.NormalToll .HighwayToll.Etc2Toll)}}お得</div>
+                    {{end}}
                 </div>
             </div>
+
             {{if .HighwayToll.FromCache}}
             <div class="text-xs text-gray-400 text-right">キャッシュから取得</div>
             {{end}}
@@ -124,50 +139,120 @@
         <!-- 軽貨物/赤帽の場合：赤帽運賃のみ表示 -->
 
         <!-- 赤帽（距離制） -->
-        <details class="mb-4 border rounded-md">
-            <summary class="p-4 cursor-pointer bg-gray-50 hover:bg-gray-100 font-medium">
-                赤帽運賃（距離制）: &yen;{{formatNumber .AkabouDistanceResult.TotalFare}}
+        <details class="mb-4 border rounded-md overflow-hidden">
+            <summary class="p-4 cursor-pointer bg-gray-50 hover:bg-gray-100 font-medium flex justify-between items-center">
+                <span>赤帽運賃（距離制）</span>
+                <span class="text-gray-700">&yen;{{formatNumber .AkabouDistanceResult.TotalFare}}</span>
             </summary>
-            <div class="p-4 text-sm space-y-1 border-t">
-                <p>距離: {{.AkabouDistanceResult.DistanceKm}}km</p>
-                <p>基本料金: &yen;{{formatNumber .AkabouDistanceResult.BaseFare}}（20km以内）</p>
-                {{if gt .AkabouDistanceResult.DistanceCharge 0}}
-                <p>距離加算: +&yen;{{formatNumber .AkabouDistanceResult.DistanceCharge}}</p>
-                {{end}}
-                {{if gt .AkabouDistanceResult.AreaSurcharge 0}}
-                <p class="text-blue-600">地区割増（{{.AkabouDistanceResult.Area}}）: +&yen;{{formatNumber .AkabouDistanceResult.AreaSurcharge}}</p>
-                {{end}}
-                {{if .AkabouDistanceResult.IsNight}}
-                <p class="text-purple-600">深夜割増: +&yen;{{formatNumber .AkabouDistanceResult.NightSurcharge}}（30%増）</p>
-                {{end}}
-                {{if .AkabouDistanceResult.IsHoliday}}
-                <p class="text-orange-600">休日割増: +&yen;{{formatNumber .AkabouDistanceResult.HolidaySurcharge}}（20%増）</p>
-                {{end}}
-                <p class="font-bold pt-2 border-t mt-2">合計: &yen;{{formatNumber .AkabouDistanceResult.TotalFare}}</p>
+            <div class="p-4 text-sm border-t bg-white">
+                <!-- 基本情報 -->
+                <div class="text-xs text-gray-500 mb-3 pb-2 border-b border-gray-100">
+                    距離: {{.AkabouDistanceResult.DistanceKm}}km
+                </div>
+                <!-- 明細 -->
+                <div class="space-y-2">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">基本料金（20km以内）</span>
+                        <span class="font-medium">&yen;{{formatNumber .AkabouDistanceResult.BaseFare}}</span>
+                    </div>
+                    {{if gt .AkabouDistanceResult.DistanceCharge 0}}
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">距離加算</span>
+                        <span class="font-medium">+&yen;{{formatNumber .AkabouDistanceResult.DistanceCharge}}</span>
+                    </div>
+                    {{end}}
+                    {{if gt .AkabouDistanceResult.AreaSurcharge 0}}
+                    <div class="flex justify-between text-blue-600">
+                        <span class="flex items-center gap-1">
+                            <span>地区割増</span>
+                            <span class="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded">{{.AkabouDistanceResult.Area}}</span>
+                        </span>
+                        <span class="font-medium">+&yen;{{formatNumber .AkabouDistanceResult.AreaSurcharge}}</span>
+                    </div>
+                    {{end}}
+                    {{if .AkabouDistanceResult.IsNight}}
+                    <div class="flex justify-between text-purple-600">
+                        <span class="flex items-center gap-1">
+                            <span>深夜割増</span>
+                            <span class="px-1.5 py-0.5 bg-purple-100 text-purple-700 text-xs rounded">+30%</span>
+                        </span>
+                        <span class="font-medium">+&yen;{{formatNumber .AkabouDistanceResult.NightSurcharge}}</span>
+                    </div>
+                    {{end}}
+                    {{if .AkabouDistanceResult.IsHoliday}}
+                    <div class="flex justify-between text-orange-600">
+                        <span class="flex items-center gap-1">
+                            <span>休日割増</span>
+                            <span class="px-1.5 py-0.5 bg-orange-100 text-orange-700 text-xs rounded">+20%</span>
+                        </span>
+                        <span class="font-medium">+&yen;{{formatNumber .AkabouDistanceResult.HolidaySurcharge}}</span>
+                    </div>
+                    {{end}}
+                </div>
+                <!-- 合計 -->
+                <div class="flex justify-between mt-3 pt-3 border-t border-gray-200 font-bold text-gray-900 bg-gray-50 -mx-4 px-4 py-2 -mb-4">
+                    <span>合計</span>
+                    <span>&yen;{{formatNumber .AkabouDistanceResult.TotalFare}}</span>
+                </div>
             </div>
         </details>
 
         <!-- 赤帽（時間制） -->
-        <details class="border rounded-md">
-            <summary class="p-4 cursor-pointer bg-gray-50 hover:bg-gray-100 font-medium">
-                赤帽運賃（時間制）: &yen;{{formatNumber .AkabouTimeResult.TotalFare}}
+        <details class="border rounded-md overflow-hidden">
+            <summary class="p-4 cursor-pointer bg-gray-50 hover:bg-gray-100 font-medium flex justify-between items-center">
+                <span>赤帽運賃（時間制）</span>
+                <span class="text-gray-700">&yen;{{formatNumber .AkabouTimeResult.TotalFare}}</span>
             </summary>
-            <div class="p-4 text-sm space-y-1 border-t">
-                <p>作業時間: {{.AkabouTimeResult.DurationMin}}分（{{formatDuration .AkabouTimeResult.DurationMin}}）</p>
-                <p>基本料金: &yen;{{formatNumber .AkabouTimeResult.BaseFare}}（2時間まで）</p>
-                {{if gt .AkabouTimeResult.OvertimeCharge 0}}
-                <p>超過料金: +&yen;{{formatNumber .AkabouTimeResult.OvertimeCharge}}（{{.AkabouTimeResult.OvertimeMin}}分超過）</p>
-                {{end}}
-                {{if gt .AkabouTimeResult.AreaSurcharge 0}}
-                <p class="text-blue-600">地区割増（{{.AkabouTimeResult.Area}}）: +&yen;{{formatNumber .AkabouTimeResult.AreaSurcharge}}</p>
-                {{end}}
-                {{if .AkabouTimeResult.IsNight}}
-                <p class="text-purple-600">深夜割増: +&yen;{{formatNumber .AkabouTimeResult.NightSurcharge}}（30%増）</p>
-                {{end}}
-                {{if .AkabouTimeResult.IsHoliday}}
-                <p class="text-orange-600">休日割増: +&yen;{{formatNumber .AkabouTimeResult.HolidaySurcharge}}（20%増）</p>
-                {{end}}
-                <p class="font-bold pt-2 border-t mt-2">合計: &yen;{{formatNumber .AkabouTimeResult.TotalFare}}</p>
+            <div class="p-4 text-sm border-t bg-white">
+                <!-- 基本情報 -->
+                <div class="text-xs text-gray-500 mb-3 pb-2 border-b border-gray-100">
+                    作業時間: {{.AkabouTimeResult.DurationMin}}分（{{formatDuration .AkabouTimeResult.DurationMin}}）
+                </div>
+                <!-- 明細 -->
+                <div class="space-y-2">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">基本料金（2時間まで）</span>
+                        <span class="font-medium">&yen;{{formatNumber .AkabouTimeResult.BaseFare}}</span>
+                    </div>
+                    {{if gt .AkabouTimeResult.OvertimeCharge 0}}
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">超過料金（{{.AkabouTimeResult.OvertimeMin}}分超過）</span>
+                        <span class="font-medium">+&yen;{{formatNumber .AkabouTimeResult.OvertimeCharge}}</span>
+                    </div>
+                    {{end}}
+                    {{if gt .AkabouTimeResult.AreaSurcharge 0}}
+                    <div class="flex justify-between text-blue-600">
+                        <span class="flex items-center gap-1">
+                            <span>地区割増</span>
+                            <span class="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded">{{.AkabouTimeResult.Area}}</span>
+                        </span>
+                        <span class="font-medium">+&yen;{{formatNumber .AkabouTimeResult.AreaSurcharge}}</span>
+                    </div>
+                    {{end}}
+                    {{if .AkabouTimeResult.IsNight}}
+                    <div class="flex justify-between text-purple-600">
+                        <span class="flex items-center gap-1">
+                            <span>深夜割増</span>
+                            <span class="px-1.5 py-0.5 bg-purple-100 text-purple-700 text-xs rounded">+30%</span>
+                        </span>
+                        <span class="font-medium">+&yen;{{formatNumber .AkabouTimeResult.NightSurcharge}}</span>
+                    </div>
+                    {{end}}
+                    {{if .AkabouTimeResult.IsHoliday}}
+                    <div class="flex justify-between text-orange-600">
+                        <span class="flex items-center gap-1">
+                            <span>休日割増</span>
+                            <span class="px-1.5 py-0.5 bg-orange-100 text-orange-700 text-xs rounded">+20%</span>
+                        </span>
+                        <span class="font-medium">+&yen;{{formatNumber .AkabouTimeResult.HolidaySurcharge}}</span>
+                    </div>
+                    {{end}}
+                </div>
+                <!-- 合計 -->
+                <div class="flex justify-between mt-3 pt-3 border-t border-gray-200 font-bold text-gray-900 bg-gray-50 -mx-4 px-4 py-2 -mb-4">
+                    <span>合計</span>
+                    <span>&yen;{{formatNumber .AkabouTimeResult.TotalFare}}</span>
+                </div>
             </div>
         </details>
 
@@ -175,50 +260,110 @@
         <!-- 2t以上の場合：トラ協運賃のみ表示 -->
 
         <!-- 距離制運賃 -->
-        <details class="mb-4 border rounded-md">
-            <summary class="p-4 cursor-pointer bg-gray-50 hover:bg-gray-100 font-medium">
-                距離制運賃（トラ協基準）: &yen;{{formatNumber .DistanceFareResult.TotalFare}}
+        <details class="mb-4 border rounded-md overflow-hidden">
+            <summary class="p-4 cursor-pointer bg-gray-50 hover:bg-gray-100 font-medium flex justify-between items-center">
+                <span>距離制運賃（トラ協基準）</span>
+                <span class="text-gray-700">&yen;{{formatNumber .DistanceFareResult.TotalFare}}</span>
             </summary>
-            <div class="p-4 text-sm space-y-1 border-t">
-                <p>運輸局: {{regionName .DistanceFareResult.RegionCode}}</p>
-                <p>車格: {{vehicleName .DistanceFareResult.VehicleCode}}</p>
-                <p>経路距離: {{.DistanceFareResult.DistanceKm}}km → 運賃計算距離: {{.DistanceFareResult.RoundedKm}}km</p>
-                <p>基本運賃: &yen;{{formatNumber .DistanceFareResult.BaseFare}}</p>
-                {{if .DistanceFareResult.IsNight}}
-                <p class="text-purple-600">深夜割増: +&yen;{{formatNumber .DistanceFareResult.NightSurcharge}}（30%増）</p>
-                {{end}}
-                {{if .DistanceFareResult.IsHoliday}}
-                <p class="text-orange-600">休日割増: +&yen;{{formatNumber .DistanceFareResult.HolidaySurcharge}}（20%増）</p>
-                {{end}}
-                <p class="font-bold pt-2 border-t mt-2">合計: &yen;{{formatNumber .DistanceFareResult.TotalFare}}</p>
+            <div class="p-4 text-sm border-t bg-white">
+                <!-- 基本情報 -->
+                <div class="text-xs text-gray-500 mb-3 pb-2 border-b border-gray-100 flex flex-wrap gap-x-4 gap-y-1">
+                    <span>{{regionName .DistanceFareResult.RegionCode}}</span>
+                    <span>{{vehicleName .DistanceFareResult.VehicleCode}}</span>
+                    <span>{{.DistanceFareResult.DistanceKm}}km → {{.DistanceFareResult.RoundedKm}}km</span>
+                </div>
+                <!-- 明細 -->
+                <div class="space-y-2">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">基本運賃</span>
+                        <span class="font-medium">&yen;{{formatNumber .DistanceFareResult.BaseFare}}</span>
+                    </div>
+                    {{if .DistanceFareResult.IsNight}}
+                    <div class="flex justify-between text-purple-600">
+                        <span class="flex items-center gap-1">
+                            <span>深夜割増</span>
+                            <span class="px-1.5 py-0.5 bg-purple-100 text-purple-700 text-xs rounded">+30%</span>
+                        </span>
+                        <span class="font-medium">+&yen;{{formatNumber .DistanceFareResult.NightSurcharge}}</span>
+                    </div>
+                    {{end}}
+                    {{if .DistanceFareResult.IsHoliday}}
+                    <div class="flex justify-between text-orange-600">
+                        <span class="flex items-center gap-1">
+                            <span>休日割増</span>
+                            <span class="px-1.5 py-0.5 bg-orange-100 text-orange-700 text-xs rounded">+20%</span>
+                        </span>
+                        <span class="font-medium">+&yen;{{formatNumber .DistanceFareResult.HolidaySurcharge}}</span>
+                    </div>
+                    {{end}}
+                </div>
+                <!-- 合計 -->
+                <div class="flex justify-between mt-3 pt-3 border-t border-gray-200 font-bold text-gray-900 bg-gray-50 -mx-4 px-4 py-2 -mb-4">
+                    <span>合計</span>
+                    <span>&yen;{{formatNumber .DistanceFareResult.TotalFare}}</span>
+                </div>
             </div>
         </details>
 
         <!-- 時間制運賃 -->
-        <details class="border rounded-md">
-            <summary class="p-4 cursor-pointer bg-gray-50 hover:bg-gray-100 font-medium">
-                時間制運賃（トラ協基準）: &yen;{{formatNumber .TimeFareResult.TotalFare}}
+        <details class="border rounded-md overflow-hidden">
+            <summary class="p-4 cursor-pointer bg-gray-50 hover:bg-gray-100 font-medium flex justify-between items-center">
+                <span>時間制運賃（トラ協基準）</span>
+                <span class="text-gray-700">&yen;{{formatNumber .TimeFareResult.TotalFare}}</span>
             </summary>
-            <div class="p-4 text-sm space-y-1 border-t">
-                <p>運輸局: {{regionName .TimeFareResult.RegionCode}}</p>
-                <p>車格: {{vehicleName .TimeFareResult.VehicleCode}}</p>
-                <p>時間制区分: {{.TimeFareResult.AppliedHours}}時間制</p>
-                <p>走行距離: {{.TimeFareResult.DistanceKm}}km（基礎キロ: {{.TimeFareResult.BaseKm}}km）</p>
-                <p>拘束時間: {{.TimeFareResult.TotalMinutes}}分（{{formatDuration .TimeFareResult.TotalMinutes}}）</p>
-                <p>基礎運賃: &yen;{{formatNumber .TimeFareResult.BaseFare}}</p>
-                {{if gt .TimeFareResult.DistanceSurcharge 0}}
-                <p>距離加算: +&yen;{{formatNumber .TimeFareResult.DistanceSurcharge}}（超過{{.TimeFareResult.ExcessKm}}km）</p>
-                {{end}}
-                {{if gt .TimeFareResult.TimeSurcharge 0}}
-                <p>時間加算: +&yen;{{formatNumber .TimeFareResult.TimeSurcharge}}（超過{{.TimeFareResult.ExcessMinutes}}分）</p>
-                {{end}}
-                {{if .TimeFareResult.IsNight}}
-                <p class="text-purple-600">深夜割増: +&yen;{{formatNumber .TimeFareResult.NightSurcharge}}（30%増）</p>
-                {{end}}
-                {{if .TimeFareResult.IsHoliday}}
-                <p class="text-orange-600">休日割増: +&yen;{{formatNumber .TimeFareResult.HolidaySurcharge}}（20%増）</p>
-                {{end}}
-                <p class="font-bold pt-2 border-t mt-2">合計: &yen;{{formatNumber .TimeFareResult.TotalFare}}</p>
+            <div class="p-4 text-sm border-t bg-white">
+                <!-- 基本情報 -->
+                <div class="text-xs text-gray-500 mb-3 pb-2 border-b border-gray-100 flex flex-wrap gap-x-4 gap-y-1">
+                    <span>{{regionName .TimeFareResult.RegionCode}}</span>
+                    <span>{{vehicleName .TimeFareResult.VehicleCode}}</span>
+                    <span>{{.TimeFareResult.AppliedHours}}時間制</span>
+                </div>
+                <div class="text-xs text-gray-500 mb-3 pb-2 border-b border-gray-100 flex flex-wrap gap-x-4 gap-y-1">
+                    <span>走行: {{.TimeFareResult.DistanceKm}}km（基礎: {{.TimeFareResult.BaseKm}}km）</span>
+                    <span>拘束: {{formatDuration .TimeFareResult.TotalMinutes}}</span>
+                </div>
+                <!-- 明細 -->
+                <div class="space-y-2">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">基礎運賃</span>
+                        <span class="font-medium">&yen;{{formatNumber .TimeFareResult.BaseFare}}</span>
+                    </div>
+                    {{if gt .TimeFareResult.DistanceSurcharge 0}}
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">距離加算（超過{{.TimeFareResult.ExcessKm}}km）</span>
+                        <span class="font-medium">+&yen;{{formatNumber .TimeFareResult.DistanceSurcharge}}</span>
+                    </div>
+                    {{end}}
+                    {{if gt .TimeFareResult.TimeSurcharge 0}}
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">時間加算（超過{{.TimeFareResult.ExcessMinutes}}分）</span>
+                        <span class="font-medium">+&yen;{{formatNumber .TimeFareResult.TimeSurcharge}}</span>
+                    </div>
+                    {{end}}
+                    {{if .TimeFareResult.IsNight}}
+                    <div class="flex justify-between text-purple-600">
+                        <span class="flex items-center gap-1">
+                            <span>深夜割増</span>
+                            <span class="px-1.5 py-0.5 bg-purple-100 text-purple-700 text-xs rounded">+30%</span>
+                        </span>
+                        <span class="font-medium">+&yen;{{formatNumber .TimeFareResult.NightSurcharge}}</span>
+                    </div>
+                    {{end}}
+                    {{if .TimeFareResult.IsHoliday}}
+                    <div class="flex justify-between text-orange-600">
+                        <span class="flex items-center gap-1">
+                            <span>休日割増</span>
+                            <span class="px-1.5 py-0.5 bg-orange-100 text-orange-700 text-xs rounded">+20%</span>
+                        </span>
+                        <span class="font-medium">+&yen;{{formatNumber .TimeFareResult.HolidaySurcharge}}</span>
+                    </div>
+                    {{end}}
+                </div>
+                <!-- 合計 -->
+                <div class="flex justify-between mt-3 pt-3 border-t border-gray-200 font-bold text-gray-900 bg-gray-50 -mx-4 px-4 py-2 -mb-4">
+                    <span>合計</span>
+                    <span>&yen;{{formatNumber .TimeFareResult.TotalFare}}</span>
+                </div>
             </div>
         </details>
 
