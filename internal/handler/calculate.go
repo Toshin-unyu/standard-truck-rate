@@ -471,7 +471,7 @@ func buildHighwayTollInfo(toll *model.HighwayToll, fromCache bool) *HighwayTollI
 		1: "小型車（2t）",
 		2: "中型車（4t）",
 		3: "大型車（10t）",
-		4: "トレーラー",
+		4: "トレーラー（20t）",
 	}
 
 	return &HighwayTollInfo{
