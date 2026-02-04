@@ -307,8 +307,8 @@ func (s *CachedRouteService) GetRoute(origin, dest string) (*RouteResult, error)
 	// キャッシュを確認
 	cached, err := s.store.Get(origin, dest)
 	if err == nil && cached != nil {
-		// キャッシュの有効期限をチェック
-		if time.Since(cached.CreatedAt) < s.cacheTTL {
+		// キャッシュの有効期限をチェック（TTL=0は無期限）
+		if s.cacheTTL == 0 || time.Since(cached.CreatedAt) < s.cacheTTL {
 			return &RouteResult{Route: cached, FromCache: true}, nil
 		}
 	}

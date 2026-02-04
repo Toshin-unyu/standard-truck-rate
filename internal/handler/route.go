@@ -3,7 +3,6 @@ package handler
 import (
 	"database/sql"
 	"net/http"
-	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/y-suzuki/standard-truck-rate/internal/model"
@@ -25,7 +24,7 @@ func NewRouteHandler(cacheDB *sql.DB, routeClient service.RouteClient, apiUsageS
 			routeService: service.NewCachedRouteService(
 				service.NewMockRoutesClient(),
 				&mockCacheStore{},
-				24*time.Hour,
+				0, // 無期限
 			),
 			apiUsageService: apiUsageService,
 		}
@@ -36,7 +35,7 @@ func NewRouteHandler(cacheDB *sql.DB, routeClient service.RouteClient, apiUsageS
 		routeService: service.NewCachedRouteService(
 			routeClient,
 			cacheStore,
-			24*time.Hour,
+			0, // 無期限
 		),
 		apiUsageService: apiUsageService,
 	}
