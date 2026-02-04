@@ -162,13 +162,40 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                     </svg>
                 </summary>
-                <div class="p-4 border-t border-gray-200">
+                <div class="p-4 border-t border-gray-200 space-y-3">
                     <label class="flex items-center">
                         <input type="checkbox" name="use_simple_base_km" value="true"
                                class="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500">
-                        <span class="ml-2 text-sm text-gray-700">シンプル版基礎走行キロ使用（時間制）</span>
+                        <span class="ml-2 text-sm text-gray-700">シンプル版基礎走行キロを使用（時間制計算）</span>
                     </label>
-                    <p class="text-xs text-gray-500 ml-6 mt-1">チェックなし: トラ協PDF版基礎キロを使用</p>
+
+                    <!-- 説明テーブル -->
+                    <div class="ml-6 text-xs">
+                        <p class="text-gray-600 mb-2">基礎走行キロ = 超過料金が発生しない距離上限</p>
+                        <table class="w-full border border-gray-200 text-center">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="border border-gray-200 px-2 py-1"></th>
+                                    <th class="border border-gray-200 px-2 py-1">4時間制</th>
+                                    <th class="border border-gray-200 px-2 py-1">8時間制</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="border border-gray-200 px-2 py-1 bg-gray-50 font-medium">シンプル版</td>
+                                    <td class="border border-gray-200 px-2 py-1">30km</td>
+                                    <td class="border border-gray-200 px-2 py-1">50km</td>
+                                </tr>
+                                <tr class="bg-blue-50">
+                                    <td class="border border-gray-200 px-2 py-1 font-medium">トラ協PDF版</td>
+                                    <td class="border border-gray-200 px-2 py-1">50-60km</td>
+                                    <td class="border border-gray-200 px-2 py-1">100-130km</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <p class="text-gray-500 mt-2">※ トラ協PDF版（推奨）: 車格により異なる正式基準</p>
+                        <p class="text-amber-600 mt-1">※ シンプル版: 基礎キロが短いため運賃が高めに算出</p>
+                    </div>
                 </div>
             </details>
 
