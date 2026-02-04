@@ -46,6 +46,10 @@ var templateFuncs = template.FuncMap{
 	"sub": func(a, b int) int {
 		return a - b
 	},
+	// 加算
+	"add": func(a, b int) int {
+		return a + b
+	},
 	// 運輸局コードを名称に変換
 	"regionName": func(code int) string {
 		names := map[int]string{

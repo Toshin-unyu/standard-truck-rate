@@ -44,17 +44,77 @@
 
                 <!-- 金額 -->
                 <div class="text-center">
-                    <span class="text-3xl font-bold {{if eq .Rank 1}}text-green-600{{else}}text-gray-800{{end}}">&yen;{{formatNumber .Fare}}</span>
+                    <span class="text-2xl font-bold {{if eq .Rank 1}}text-green-600{{else}}text-gray-800{{end}}">&yen;{{formatNumber .Fare}}</span>
                     {{if eq .Rank 1}}
-                    <div class="text-sm text-green-600 mt-1">最安</div>
+                    <div class="text-xs text-green-600 mt-1">最安</div>
                     {{else}}
-                    <div class="text-sm text-gray-500 mt-1">+&yen;{{formatNumber (sub .Fare $minFare)}}</div>
+                    <div class="text-xs text-gray-500 mt-1">+&yen;{{formatNumber (sub .Fare $minFare)}}</div>
                     {{end}}
                 </div>
+
+                <!-- 高速代 + 合計（高速使用時のみ） -->
+                {{if and $.UseHighway $.HighwayToll}}
+                <div class="mt-3 pt-3 border-t {{if eq .Rank 1}}border-green-200{{else}}border-gray-200{{end}}">
+                    <div class="flex justify-between text-xs {{if eq .Rank 1}}text-green-600{{else}}text-gray-500{{end}} mb-1">
+                        <span>+ 高速代（ETC）</span>
+                        <span>&yen;{{formatNumber $.HighwayToll.EtcToll}}</span>
+                    </div>
+                    <div class="flex justify-between items-center font-bold {{if eq .Rank 1}}text-green-700{{else}}text-gray-700{{end}}">
+                        <span class="text-sm">合計</span>
+                        <span class="text-lg">&yen;{{formatNumber (add .Fare $.HighwayToll.EtcToll)}}</span>
+                    </div>
+                </div>
+                {{end}}
             </div>
             {{end}}
         </div>
     </div>
+
+    {{if .UseHighway}}
+    <!-- 高速料金 -->
+    <div class="bg-white rounded-lg border border-gray-200 p-6">
+        <h2 class="text-base font-semibold text-gray-800 mb-4">高速料金</h2>
+        {{if .HighwayError}}
+        <div class="bg-red-50 border border-red-200 rounded-md p-4 text-sm text-red-700">
+            <p>{{.HighwayError}}</p>
+        </div>
+        {{else if .HighwayToll}}
+        <div class="space-y-3">
+            <div class="flex justify-between border-b pb-2">
+                <span class="text-gray-600">区間</span>
+                <span class="font-medium">{{.HighwayToll.OriginIC}} → {{.HighwayToll.DestIC}}</span>
+            </div>
+            <div class="flex justify-between border-b pb-2">
+                <span class="text-gray-600">車種</span>
+                <span class="font-medium">{{.HighwayToll.CarTypeName}}</span>
+            </div>
+            <div class="flex justify-between border-b pb-2">
+                <span class="text-gray-600">高速距離</span>
+                <span class="font-medium">{{printf "%.1f" .HighwayToll.DistanceKm}} km</span>
+            </div>
+            <div class="mt-4 pt-2">
+                <div class="grid grid-cols-3 gap-3 text-center">
+                    <div class="bg-gray-50 p-3 rounded-lg">
+                        <div class="text-xs text-gray-500 mb-1">通常料金</div>
+                        <div class="text-lg font-bold text-gray-800">&yen;{{formatNumber .HighwayToll.NormalToll}}</div>
+                    </div>
+                    <div class="bg-blue-50 p-3 rounded-lg">
+                        <div class="text-xs text-blue-600 mb-1">ETC料金</div>
+                        <div class="text-lg font-bold text-blue-700">&yen;{{formatNumber .HighwayToll.EtcToll}}</div>
+                    </div>
+                    <div class="bg-green-50 p-3 rounded-lg">
+                        <div class="text-xs text-green-600 mb-1">ETC2.0</div>
+                        <div class="text-lg font-bold text-green-700">&yen;{{formatNumber .HighwayToll.Etc2Toll}}</div>
+                    </div>
+                </div>
+            </div>
+            {{if .HighwayToll.FromCache}}
+            <div class="text-xs text-gray-400 text-right">キャッシュから取得</div>
+            {{end}}
+        </div>
+        {{end}}
+    </div>
+    {{end}}
 
     <!-- 詳細表示（アコーディオン） -->
     <div class="bg-white rounded-lg border border-gray-200 p-6">
@@ -164,75 +224,6 @@
 
         {{end}}
     </div>
-
-    {{if .UseHighway}}
-    <!-- 高速料金 -->
-    <div class="bg-white rounded-lg border border-gray-200 p-6">
-        <h2 class="text-base font-semibold text-gray-800 mb-4">高速料金</h2>
-        {{if .HighwayError}}
-        <div class="bg-red-50 border border-red-200 rounded-md p-4 text-sm text-red-700">
-            <p>{{.HighwayError}}</p>
-        </div>
-        {{else if .HighwayToll}}
-        <div class="space-y-3">
-            <div class="flex justify-between border-b pb-2">
-                <span class="text-gray-600">区間</span>
-                <span class="font-medium">{{.HighwayToll.OriginIC}} → {{.HighwayToll.DestIC}}</span>
-            </div>
-            <div class="flex justify-between border-b pb-2">
-                <span class="text-gray-600">車種</span>
-                <span class="font-medium">{{.HighwayToll.CarTypeName}}</span>
-            </div>
-            <div class="flex justify-between border-b pb-2">
-                <span class="text-gray-600">高速距離</span>
-                <span class="font-medium">{{printf "%.1f" .HighwayToll.DistanceKm}} km</span>
-            </div>
-            <div class="mt-4 pt-2">
-                <div class="grid grid-cols-3 gap-3 text-center">
-                    <div class="bg-gray-50 p-3 rounded-lg">
-                        <div class="text-xs text-gray-500 mb-1">通常料金</div>
-                        <div class="text-lg font-bold text-gray-800">&yen;{{formatNumber .HighwayToll.NormalToll}}</div>
-                    </div>
-                    <div class="bg-blue-50 p-3 rounded-lg">
-                        <div class="text-xs text-blue-600 mb-1">ETC料金</div>
-                        <div class="text-lg font-bold text-blue-700">&yen;{{formatNumber .HighwayToll.EtcToll}}</div>
-                    </div>
-                    <div class="bg-green-50 p-3 rounded-lg">
-                        <div class="text-xs text-green-600 mb-1">ETC2.0</div>
-                        <div class="text-lg font-bold text-green-700">&yen;{{formatNumber .HighwayToll.Etc2Toll}}</div>
-                    </div>
-                </div>
-            </div>
-            {{if .HighwayToll.FromCache}}
-            <div class="text-xs text-gray-400 text-right">キャッシュから取得</div>
-            {{end}}
-        </div>
-        {{end}}
-    </div>
-
-    {{if .TotalWithHighway}}
-    <!-- 合計金額 -->
-    <div class="bg-blue-600 rounded-lg p-6 text-white">
-        <h2 class="text-base font-semibold mb-4">合計金額（運賃 + 高速代）</h2>
-        <div class="space-y-2 text-sm">
-            <div class="flex justify-between items-center">
-                <span class="text-blue-200">運賃（最安〜最高）</span>
-                <span class="font-medium">&yen;{{formatNumber .TotalWithHighway.MinFare}} 〜 &yen;{{formatNumber .TotalWithHighway.MaxFare}}</span>
-            </div>
-            <div class="flex justify-between items-center">
-                <span class="text-blue-200">高速代（ETC）</span>
-                <span class="font-medium">+ &yen;{{formatNumber .TotalWithHighway.HighwayToll}}</span>
-            </div>
-            <div class="border-t border-blue-400 pt-3 mt-3">
-                <div class="flex justify-between items-center text-xl">
-                    <span class="font-bold">合計</span>
-                    <span class="font-bold">&yen;{{formatNumber .TotalWithHighway.MinTotal}} 〜 &yen;{{formatNumber .TotalWithHighway.MaxTotal}}</span>
-                </div>
-            </div>
-        </div>
-    </div>
-    {{end}}
-    {{end}}
 
     <!-- 注意事項 -->
     <div class="text-xs text-gray-500 text-center">
