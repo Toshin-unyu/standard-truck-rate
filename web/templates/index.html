@@ -5,228 +5,205 @@
     <h1 class="text-2xl font-bold text-gray-800 mb-6">トラック運賃計算</h1>
 
     <!-- 入力フォーム -->
-    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
         <form id="fareForm"
               hx-post="/api/fare/calculate"
               hx-target="#result"
               hx-swap="innerHTML"
               hx-indicator="#loading">
 
+            <!-- API上限到達時の警告（手入力モード時のみ表示） -->
+            <div id="manualInputWarning" class="hidden mb-5 p-3 bg-amber-50 border border-amber-300 rounded-lg">
+                <p class="text-sm text-amber-800">
+                    <strong>API上限到達のため手入力モードです。</strong>
+                    距離・走行時間・運輸局を手動で入力してください。
+                </p>
+            </div>
+
             <!-- 出発地・目的地 -->
-            <div class="mb-6">
-                <h2 class="text-lg font-semibold text-gray-700 mb-4 pb-2 border-b">出発地・目的地</h2>
-
-                <!-- API上限到達時の警告（手入力モード時のみ表示） -->
-                <div id="manualInputWarning" class="hidden mb-4 p-3 bg-yellow-50 border border-yellow-300 rounded-md">
-                    <p class="text-sm text-yellow-800">
-                        <strong>API上限到達のため手入力モードです。</strong><br>
-                        距離・走行時間・運輸局を手動で入力してください。
-                    </p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">出発地</label>
+                    <input type="text" name="origin" id="originInput" required
+                           placeholder="東京都千代田区丸の内1-1-1"
+                           class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
                 </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <!-- 出発地 -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">出発地</label>
-                        <input type="text" name="origin" id="originInput" required
-                               placeholder="例: 東京都千代田区丸の内1-1-1"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <p class="text-xs text-gray-500 mt-1">地名・住所・郵便番号で入力</p>
-                    </div>
-
-                    <!-- 目的地 -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">目的地</label>
-                        <input type="text" name="dest" id="destInput" required
-                               placeholder="例: 大阪府大阪市中央区"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <p class="text-xs text-gray-500 mt-1">地名・住所・郵便番号で入力</p>
-                    </div>
-                </div>
-
-                <!-- 手入力フィールド（通常は非表示、API上限到達時に表示） -->
-                <div id="manualInputFields" class="hidden mt-4 pt-4 border-t border-gray-200">
-                    <p class="text-sm font-medium text-gray-700 mb-3">手入力項目（自動取得停止中）</p>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <!-- 運輸局 -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">運輸局</label>
-                            <select name="region_code" id="regionCodeInput"
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                <option value="1">北海道</option>
-                                <option value="2">東北</option>
-                                <option value="3" selected>関東</option>
-                                <option value="4">北陸信越</option>
-                                <option value="5">中部</option>
-                                <option value="6">近畿</option>
-                                <option value="7">中国</option>
-                                <option value="8">四国</option>
-                                <option value="9">九州</option>
-                                <option value="10">沖縄</option>
-                            </select>
-                        </div>
-
-                        <!-- 距離 -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">距離（km）</label>
-                            <input type="number" name="distance_km" id="distanceKmInput" min="1" max="9999"
-                                   placeholder="例: 500"
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        </div>
-
-                        <!-- 走行時間 -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">走行時間（分）</label>
-                            <input type="number" name="driving_minutes" id="drivingMinutesInput" min="1" max="9999"
-                                   placeholder="例: 360"
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        </div>
-                    </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">目的地</label>
+                    <input type="text" name="dest" id="destInput" required
+                           placeholder="大阪府大阪市中央区"
+                           class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
                 </div>
             </div>
 
-            <!-- 車格・荷役時間 -->
-            <div class="mb-6">
-                <h2 class="text-lg font-semibold text-gray-700 mb-4 pb-2 border-b">車格・荷役時間</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <!-- 車格 -->
+            <!-- 手入力フィールド（通常は非表示、API上限到達時に表示） -->
+            <div id="manualInputFields" class="hidden mb-5 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <p class="text-sm font-medium text-gray-700 mb-3">手入力項目（自動取得停止中）</p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">車格</label>
-                        <select name="vehicle_code" required
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <option value="0">軽貨物/赤帽（350kg）</option>
-                            <option value="1">小型車（2t）</option>
-                            <option value="2">中型車（4t）</option>
-                            <option value="3" selected>大型車（10t）</option>
-                            <option value="4">トレーラー（20t）</option>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">運輸局</label>
+                        <select name="region_code" id="regionCodeInput"
+                                class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                            <option value="1">北海道</option>
+                            <option value="2">東北</option>
+                            <option value="3" selected>関東</option>
+                            <option value="4">北陸信越</option>
+                            <option value="5">中部</option>
+                            <option value="6">近畿</option>
+                            <option value="7">中国</option>
+                            <option value="8">四国</option>
+                            <option value="9">九州</option>
+                            <option value="10">沖縄</option>
                         </select>
-                        <p class="text-xs text-gray-500 mt-1">軽貨物は赤帽運賃のみ、2t以上はトラ協運賃のみ表示</p>
                     </div>
-
-                    <!-- 荷役時間 -->
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">荷役時間（分）</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">距離（km）</label>
+                        <input type="number" name="distance_km" id="distanceKmInput" min="1" max="9999"
+                               placeholder="500"
+                               class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">走行時間（分）</label>
+                        <input type="number" name="driving_minutes" id="drivingMinutesInput" min="1" max="9999"
+                               placeholder="360"
+                               class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 車格・荷役時間・オプション（1行にまとめる） -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">車格</label>
+                    <select name="vehicle_code" required
+                            class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                        <option value="0">軽貨物/赤帽</option>
+                        <option value="1">小型車（2t）</option>
+                        <option value="2">中型車（4t）</option>
+                        <option value="3" selected>大型車（10t）</option>
+                        <option value="4">トレーラー</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">荷役時間</label>
+                    <div class="relative">
                         <input type="number" name="loading_minutes" required min="0" max="9999" value="60"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <p class="text-xs text-gray-500 mt-1">積み下ろし作業時間</p>
+                               class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 pr-10">
+                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">分</span>
                     </div>
+                </div>
+                <div class="flex items-end">
+                    <label class="flex items-center h-[42px] px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-100 w-full">
+                        <input type="checkbox" name="is_night" value="true"
+                               class="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500">
+                        <span class="ml-2 text-sm text-gray-700">深夜</span>
+                    </label>
+                </div>
+                <div class="flex items-end">
+                    <label class="flex items-center h-[42px] px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-100 w-full">
+                        <input type="checkbox" name="is_holiday" value="true"
+                               class="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500">
+                        <span class="ml-2 text-sm text-gray-700">休日</span>
+                    </label>
                 </div>
             </div>
 
-            <!-- オプション -->
-            <div class="mb-6">
-                <h2 class="text-lg font-semibold text-gray-700 mb-4 pb-2 border-b">オプション</h2>
-                <div class="space-y-3">
-                    <!-- 割増オプション -->
-                    <div class="flex flex-wrap gap-6">
-                        <label class="flex items-center">
-                            <input type="checkbox" name="is_night" value="true"
-                                   class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
-                            <span class="ml-2 text-sm text-gray-700">深夜割増（22:00-05:00）+30%</span>
-                        </label>
-                        <label class="flex items-center">
-                            <input type="checkbox" name="is_holiday" value="true"
-                                   class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
-                            <span class="ml-2 text-sm text-gray-700">休日割増（日祝日）+20%</span>
-                        </label>
-                    </div>
-
-                    <!-- 計算方式オプション -->
-                    <div class="pt-2">
-                        <label class="flex items-center">
-                            <input type="checkbox" name="use_simple_base_km" value="true"
-                                   class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
-                            <span class="ml-2 text-sm text-gray-700">シンプル版基礎走行キロ使用（時間制）</span>
-                        </label>
-                        <p class="text-xs text-gray-500 ml-6 mt-1">チェックなし: トラ協PDF版基礎キロを使用</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 高速道路オプション -->
-            <div class="mb-6">
-                <h2 class="text-lg font-semibold text-gray-700 mb-4 pb-2 border-b">高速道路</h2>
-                <div class="space-y-4">
-                    <!-- 高速道路使用チェック -->
+            <!-- 高速道路オプション（折りたたみ） -->
+            <details class="mb-5 border border-gray-200 rounded-lg">
+                <summary class="px-4 py-3 cursor-pointer bg-gray-50 hover:bg-gray-100 rounded-lg font-medium text-sm text-gray-700 flex items-center justify-between">
+                    <span>高速道路オプション</span>
+                    <svg class="w-5 h-5 text-gray-500 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </summary>
+                <div class="p-4 space-y-4 border-t border-gray-200">
                     <label class="flex items-center">
                         <input type="checkbox" name="use_highway" id="useHighway" value="true"
-                               class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                               class="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
                                onchange="toggleHighwayOptions()">
                         <span class="ml-2 text-sm text-gray-700">高速道路を使用する</span>
                     </label>
 
-                    <!-- 高速道路詳細（チェック時のみ表示） -->
-                    <div id="highwayOptions" class="hidden pl-6 space-y-4 border-l-2 border-blue-200">
-                        <!-- IC入力 -->
+                    <div id="highwayOptions" class="hidden pl-6 space-y-4 border-l-2 border-emerald-200">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <!-- 乗IC -->
                             <div class="relative">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">乗IC</label>
                                 <input type="text" name="origin_ic" id="originIC"
                                        placeholder="IC名を入力..."
                                        autocomplete="off"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                       class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
                                 <div id="originSuggestions" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg hidden max-h-60 overflow-y-auto"></div>
                             </div>
-
-                            <!-- 降IC -->
                             <div class="relative">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">降IC</label>
                                 <input type="text" name="dest_ic" id="destIC"
                                        placeholder="IC名を入力..."
                                        autocomplete="off"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                       class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
                                 <div id="destSuggestions" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg hidden max-h-60 overflow-y-auto"></div>
                             </div>
                         </div>
-
-                        <!-- 車種は車格から自動判定 -->
-                        <p class="text-xs text-gray-500 mt-2">※ 高速料金の車種は車格から自動判定されます</p>
+                        <p class="text-xs text-gray-500">※ 高速料金の車種は車格から自動判定されます</p>
                     </div>
                 </div>
-            </div>
+            </details>
+
+            <!-- 詳細オプション（折りたたみ） -->
+            <details class="mb-6 border border-gray-200 rounded-lg">
+                <summary class="px-4 py-3 cursor-pointer bg-gray-50 hover:bg-gray-100 rounded-lg font-medium text-sm text-gray-700 flex items-center justify-between">
+                    <span>詳細オプション</span>
+                    <svg class="w-5 h-5 text-gray-500 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </summary>
+                <div class="p-4 border-t border-gray-200">
+                    <label class="flex items-center">
+                        <input type="checkbox" name="use_simple_base_km" value="true"
+                               class="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500">
+                        <span class="ml-2 text-sm text-gray-700">シンプル版基礎走行キロ使用（時間制）</span>
+                    </label>
+                    <p class="text-xs text-gray-500 ml-6 mt-1">チェックなし: トラ協PDF版基礎キロを使用</p>
+                </div>
+            </details>
 
             <!-- 計算ボタン -->
-            <div class="flex items-center gap-4">
-                <button type="submit"
-                        class="flex-1 bg-blue-600 text-white py-3 px-6 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium transition-colors">
+            <button type="submit"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3.5 px-6 rounded-lg font-medium text-base transition-colors">
+                <span class="flex items-center justify-center gap-2">
                     運賃を計算
-                </button>
-                <div id="loading" class="htmx-indicator">
-                    <svg class="animate-spin h-6 w-6 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                </div>
-            </div>
+                    <div id="loading" class="htmx-indicator">
+                        <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </div>
+                </span>
+            </button>
         </form>
     </div>
 
     <!-- 計算結果表示エリア -->
     <div id="result">
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <h2 class="text-lg font-semibold text-gray-700 mb-4">使い方</h2>
-            <div class="space-y-3 text-sm text-gray-600">
-                <p>1. 出発地と目的地を入力してください</p>
-                <p>2. 車格と荷役時間を設定してください</p>
-                <p>3. 必要に応じて割増オプションを選択してください</p>
-                <p>4. 「運賃を計算」ボタンをクリックすると、運賃を比較表示します</p>
-            </div>
-            <div class="mt-4 p-4 bg-blue-50 rounded-md">
-                <p class="text-sm text-blue-800">
-                    <strong>自動取得される項目：</strong><br>
-                    ・運輸局（出発地の都道府県から判定）<br>
-                    ・距離（Google Maps APIで取得）<br>
-                    ・走行時間（Google Maps APIで取得）<br>
-                    ・赤帽地区（東京23区/大阪市内を自動判定）
-                </p>
-            </div>
-            <div class="mt-4 p-4 bg-gray-50 rounded-md">
-                <p class="text-sm text-gray-700">
-                    <strong>計算される運賃：</strong><br>
-                    <span class="text-blue-700">軽貨物選択時：</span>赤帽運賃（距離制・時間制）<br>
-                    <span class="text-blue-700">2t以上選択時：</span>トラ協運賃（距離制・時間制）
-                </p>
+        <div class="bg-slate-50 rounded-lg border border-slate-200 p-6">
+            <div class="flex items-start gap-4">
+                <div class="p-2 bg-slate-200 rounded-lg">
+                    <svg class="w-6 h-6 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                <div class="flex-1">
+                    <p class="text-sm text-slate-600 mb-3">
+                        出発地・目的地を入力して「運賃を計算」を押すと、距離制・時間制の運賃を比較表示します。
+                    </p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-slate-500">
+                        <div>
+                            <span class="font-medium text-slate-600">自動取得:</span> 運輸局・距離・走行時間
+                        </div>
+                        <div>
+                            <span class="font-medium text-slate-600">軽貨物:</span> 赤帽運賃 / <span class="font-medium text-slate-600">2t以上:</span> トラ協運賃
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

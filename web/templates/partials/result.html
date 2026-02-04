@@ -1,16 +1,15 @@
 {{define "result"}}
 <div class="space-y-6">
     <!-- 自動取得情報 -->
-    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h2 class="text-sm font-semibold text-blue-800 mb-2">自動取得情報</h2>
-        <div class="flex flex-wrap gap-x-6 gap-y-1 text-sm text-blue-700">
+    <div class="bg-gray-100 border border-gray-200 rounded-lg p-4">
+        <div class="flex flex-wrap gap-x-6 gap-y-1 text-sm text-gray-700">
             {{if eq .VehicleCode 0}}
             <!-- 軽貨物の場合 -->
             <span>車格: <strong>軽貨物/赤帽</strong></span>
             <span>距離: <strong>{{.AkabouDistanceResult.DistanceKm}}km</strong></span>
             <span>走行時間: <strong>{{formatDuration .DrivingMinutes}}</strong></span>
             {{if .AkabouDistanceResult.Area}}
-            <span>赤帽地区: <strong>{{.AkabouDistanceResult.Area}}</strong></span>
+            <span>地区: <strong>{{.AkabouDistanceResult.Area}}</strong></span>
             {{end}}
             {{else}}
             <!-- 2t以上の場合 -->
@@ -21,30 +20,45 @@
         </div>
     </div>
 
-    <!-- ランキング表示 -->
-    <div class="bg-white rounded-lg shadow-md p-6">
-        <h2 class="text-lg font-semibold text-gray-700 mb-4">運賃比較ランキング</h2>
-        <div class="space-y-2">
+    <!-- 運賃比較（横並びカラム） -->
+    <div class="bg-white rounded-lg border border-gray-200 p-6">
+        <h2 class="text-base font-semibold text-gray-800 mb-5">運賃比較</h2>
+
+        {{/* 最安値を取得（Rankings[0]が最安） */}}
+        {{$minFare := (index .Rankings 0).Fare}}
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             {{range .Rankings}}
-            <div class="flex items-center justify-between p-3 rounded-md {{if eq .Rank 1}}bg-green-50 border-2 border-green-500{{else}}bg-gray-50{{end}}">
-                <div class="flex items-center gap-3">
-                    <span class="flex items-center justify-center w-8 h-8 rounded-full {{if eq .Rank 1}}bg-green-500 text-white{{else if eq .Rank 2}}bg-gray-400 text-white{{else if eq .Rank 3}}bg-amber-600 text-white{{else}}bg-gray-300 text-gray-700{{end}} font-bold text-sm">
-                        {{.Rank}}
-                    </span>
-                    <span class="font-medium {{if eq .Rank 1}}text-green-700{{else}}text-gray-700{{end}}">{{.Type}}</span>
+            <div class="relative p-5 rounded-lg border-2 transition-all {{if eq .Rank 1}}border-green-500 bg-green-50{{else}}border-gray-200 bg-gray-50 hover:border-gray-300{{end}}">
+                <!-- 推奨バッジ -->
+                {{if eq .Rank 1}}
+                <div class="absolute -top-2.5 left-4 px-2 py-0.5 bg-green-500 text-white text-xs font-bold rounded-full">
+                    推奨
+                </div>
+                {{end}}
+
+                <!-- 運賃タイプ -->
+                <div class="text-center mb-3 pt-1">
+                    <span class="text-sm font-medium {{if eq .Rank 1}}text-green-700{{else}}text-gray-600{{end}}">{{.Type}}</span>
+                </div>
+
+                <!-- 金額 -->
+                <div class="text-center">
+                    <span class="text-3xl font-bold {{if eq .Rank 1}}text-green-600{{else}}text-gray-800{{end}}">&yen;{{formatNumber .Fare}}</span>
                     {{if eq .Rank 1}}
-                    <span class="px-2 py-1 bg-green-500 text-white text-xs rounded-full">最安</span>
+                    <div class="text-sm text-green-600 mt-1">最安</div>
+                    {{else}}
+                    <div class="text-sm text-gray-500 mt-1">+&yen;{{formatNumber (sub .Fare $minFare)}}</div>
                     {{end}}
                 </div>
-                <span class="text-xl font-bold {{if eq .Rank 1}}text-green-700{{else}}text-gray-800{{end}}">&yen;{{formatNumber .Fare}}</span>
             </div>
             {{end}}
         </div>
     </div>
 
     <!-- 詳細表示（アコーディオン） -->
-    <div class="bg-white rounded-lg shadow-md p-6">
-        <h2 class="text-lg font-semibold text-gray-700 mb-4">計算詳細</h2>
+    <div class="bg-white rounded-lg border border-gray-200 p-6">
+        <h2 class="text-base font-semibold text-gray-800 mb-4">計算詳細</h2>
 
         {{if eq .VehicleCode 0}}
         <!-- 軽貨物/赤帽の場合：赤帽運賃のみ表示 -->
@@ -153,8 +167,8 @@
 
     {{if .UseHighway}}
     <!-- 高速料金 -->
-    <div class="bg-white rounded-lg shadow-md p-6">
-        <h2 class="text-lg font-semibold text-gray-700 mb-4">高速料金</h2>
+    <div class="bg-white rounded-lg border border-gray-200 p-6">
+        <h2 class="text-base font-semibold text-gray-800 mb-4">高速料金</h2>
         {{if .HighwayError}}
         <div class="bg-red-50 border border-red-200 rounded-md p-4 text-sm text-red-700">
             <p>{{.HighwayError}}</p>
@@ -174,18 +188,18 @@
                 <span class="font-medium">{{printf "%.1f" .HighwayToll.DistanceKm}} km</span>
             </div>
             <div class="mt-4 pt-2">
-                <div class="grid grid-cols-3 gap-4 text-center">
-                    <div class="bg-gray-50 p-3 rounded">
-                        <div class="text-sm text-gray-500">通常料金</div>
-                        <div class="text-xl font-bold text-gray-800">&yen;{{formatNumber .HighwayToll.NormalToll}}</div>
+                <div class="grid grid-cols-3 gap-3 text-center">
+                    <div class="bg-gray-50 p-3 rounded-lg">
+                        <div class="text-xs text-gray-500 mb-1">通常料金</div>
+                        <div class="text-lg font-bold text-gray-800">&yen;{{formatNumber .HighwayToll.NormalToll}}</div>
                     </div>
-                    <div class="bg-blue-50 p-3 rounded">
-                        <div class="text-sm text-blue-600">ETC料金</div>
-                        <div class="text-xl font-bold text-blue-700">&yen;{{formatNumber .HighwayToll.EtcToll}}</div>
+                    <div class="bg-blue-50 p-3 rounded-lg">
+                        <div class="text-xs text-blue-600 mb-1">ETC料金</div>
+                        <div class="text-lg font-bold text-blue-700">&yen;{{formatNumber .HighwayToll.EtcToll}}</div>
                     </div>
-                    <div class="bg-green-50 p-3 rounded">
-                        <div class="text-sm text-green-600">ETC2.0</div>
-                        <div class="text-xl font-bold text-green-700">&yen;{{formatNumber .HighwayToll.Etc2Toll}}</div>
+                    <div class="bg-green-50 p-3 rounded-lg">
+                        <div class="text-xs text-green-600 mb-1">ETC2.0</div>
+                        <div class="text-lg font-bold text-green-700">&yen;{{formatNumber .HighwayToll.Etc2Toll}}</div>
                     </div>
                 </div>
             </div>
@@ -198,18 +212,18 @@
 
     {{if .TotalWithHighway}}
     <!-- 合計金額 -->
-    <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-md p-6 text-white">
-        <h2 class="text-lg font-semibold mb-4">合計金額（運賃 + 高速代）</h2>
-        <div class="space-y-2">
+    <div class="bg-blue-600 rounded-lg p-6 text-white">
+        <h2 class="text-base font-semibold mb-4">合計金額（運賃 + 高速代）</h2>
+        <div class="space-y-2 text-sm">
             <div class="flex justify-between items-center">
-                <span>運賃（最安〜最高）</span>
+                <span class="text-blue-200">運賃（最安〜最高）</span>
                 <span class="font-medium">&yen;{{formatNumber .TotalWithHighway.MinFare}} 〜 &yen;{{formatNumber .TotalWithHighway.MaxFare}}</span>
             </div>
             <div class="flex justify-between items-center">
-                <span>高速代（ETC）</span>
+                <span class="text-blue-200">高速代（ETC）</span>
                 <span class="font-medium">+ &yen;{{formatNumber .TotalWithHighway.HighwayToll}}</span>
             </div>
-            <div class="border-t border-blue-400 pt-2 mt-2">
+            <div class="border-t border-blue-400 pt-3 mt-3">
                 <div class="flex justify-between items-center text-xl">
                     <span class="font-bold">合計</span>
                     <span class="font-bold">&yen;{{formatNumber .TotalWithHighway.MinTotal}} 〜 &yen;{{formatNumber .TotalWithHighway.MaxTotal}}</span>
@@ -221,9 +235,8 @@
     {{end}}
 
     <!-- 注意事項 -->
-    <div class="bg-yellow-50 border border-yellow-200 rounded-md p-4 text-sm text-yellow-800">
-        <p class="font-medium mb-1">ご注意</p>
-        <p>この運賃計算はあくまで目安です。実際の運賃は運送事業者との契約内容によって異なります。</p>
+    <div class="text-xs text-gray-500 text-center">
+        ※ この運賃計算はあくまで目安です。実際の運賃は運送事業者との契約内容によって異なります。
     </div>
 </div>
 {{end}}
