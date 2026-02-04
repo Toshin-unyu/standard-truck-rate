@@ -293,9 +293,23 @@ func (h *CalculateHandler) parseRequest(c echo.Context) (*CalculateRequest, erro
 	req.DestIC = c.FormValue("dest_ic")
 
 	// origin/dest が指定されている場合、ルート情報から距離・時間・運輸局を取得
+	// ただし、距離と走行時間が手入力されている場合はスキップ（API上限到達時の手入力モード対応）
 	if req.Origin != "" && req.Dest != "" {
-		if err := h.resolveRouteInfo(req); err != nil {
-			return nil, err
+		// 手入力値があるかチェック
+		hasManualDistance := c.FormValue("distance_km") != ""
+		hasManualDriving := c.FormValue("driving_minutes") != ""
+
+		if hasManualDistance && hasManualDriving {
+			// 手入力モード：API呼び出しをスキップ
+			// 赤帽地区の判定のみ行う
+			if req.Area == "" {
+				req.Area = service.ResolveAkabouArea(req.Origin)
+			}
+		} else {
+			// 自動取得モード
+			if err := h.resolveRouteInfo(req); err != nil {
+				return nil, err
+			}
 		}
 	}
 

@@ -15,11 +15,20 @@
             <!-- 出発地・目的地 -->
             <div class="mb-6">
                 <h2 class="text-lg font-semibold text-gray-700 mb-4 pb-2 border-b">出発地・目的地</h2>
+
+                <!-- API上限到達時の警告（手入力モード時のみ表示） -->
+                <div id="manualInputWarning" class="hidden mb-4 p-3 bg-yellow-50 border border-yellow-300 rounded-md">
+                    <p class="text-sm text-yellow-800">
+                        <strong>API上限到達のため手入力モードです。</strong><br>
+                        距離・走行時間・運輸局を手動で入力してください。
+                    </p>
+                </div>
+
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <!-- 出発地 -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">出発地</label>
-                        <input type="text" name="origin" required
+                        <input type="text" name="origin" id="originInput" required
                                placeholder="例: 東京都千代田区丸の内1-1-1"
                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <p class="text-xs text-gray-500 mt-1">地名・住所・郵便番号で入力</p>
@@ -28,10 +37,50 @@
                     <!-- 目的地 -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">目的地</label>
-                        <input type="text" name="dest" required
+                        <input type="text" name="dest" id="destInput" required
                                placeholder="例: 大阪府大阪市中央区"
                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <p class="text-xs text-gray-500 mt-1">地名・住所・郵便番号で入力</p>
+                    </div>
+                </div>
+
+                <!-- 手入力フィールド（通常は非表示、API上限到達時に表示） -->
+                <div id="manualInputFields" class="hidden mt-4 pt-4 border-t border-gray-200">
+                    <p class="text-sm font-medium text-gray-700 mb-3">手入力項目（自動取得停止中）</p>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <!-- 運輸局 -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">運輸局</label>
+                            <select name="region_code" id="regionCodeInput"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="1">北海道</option>
+                                <option value="2">東北</option>
+                                <option value="3" selected>関東</option>
+                                <option value="4">北陸信越</option>
+                                <option value="5">中部</option>
+                                <option value="6">近畿</option>
+                                <option value="7">中国</option>
+                                <option value="8">四国</option>
+                                <option value="9">九州</option>
+                                <option value="10">沖縄</option>
+                            </select>
+                        </div>
+
+                        <!-- 距離 -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">距離（km）</label>
+                            <input type="number" name="distance_km" id="distanceKmInput" min="1" max="9999"
+                                   placeholder="例: 500"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+
+                        <!-- 走行時間 -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">走行時間（分）</label>
+                            <input type="number" name="driving_minutes" id="drivingMinutesInput" min="1" max="9999"
+                                   placeholder="例: 360"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
                     </div>
                 </div>
             </div>
@@ -241,6 +290,76 @@
             }
         });
     }
+
+    // 手入力モードの切替
+    function toggleManualInputMode(enabled) {
+        const warning = document.getElementById('manualInputWarning');
+        const fields = document.getElementById('manualInputFields');
+        const originInput = document.getElementById('originInput');
+        const destInput = document.getElementById('destInput');
+        const distanceInput = document.getElementById('distanceKmInput');
+        const drivingInput = document.getElementById('drivingMinutesInput');
+
+        if (enabled) {
+            // 手入力モードを有効化
+            warning.classList.remove('hidden');
+            fields.classList.remove('hidden');
+            // 手入力フィールドを必須に
+            distanceInput.required = true;
+            drivingInput.required = true;
+            // 出発地・目的地のname属性を無効化（送信されないようにする）
+            originInput.name = '_origin_disabled';
+            destInput.name = '_dest_disabled';
+        } else {
+            // 手入力モードを無効化
+            warning.classList.add('hidden');
+            fields.classList.add('hidden');
+            // 手入力フィールドの必須を解除
+            distanceInput.required = false;
+            drivingInput.required = false;
+            // 出発地・目的地のname属性を有効化
+            originInput.name = 'origin';
+            destInput.name = 'dest';
+        }
+    }
+
+    // API上限チェックして手入力モードを切替
+    function checkApiLimitAndToggleMode() {
+        if (window.apiLimitExceeded) {
+            toggleManualInputMode(true);
+        } else {
+            toggleManualInputMode(false);
+        }
+    }
+
+    // フォーム送信前のチェック
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('fareForm');
+
+        // HTMXの送信前イベント
+        form.addEventListener('htmx:beforeRequest', function(evt) {
+            // 手入力モードで必須項目が未入力の場合はエラー
+            if (window.apiLimitExceeded) {
+                const distance = document.getElementById('distanceKmInput').value;
+                const driving = document.getElementById('drivingMinutesInput').value;
+                if (!distance || !driving) {
+                    evt.preventDefault();
+                    alert('API上限到達中のため、距離と走行時間を手入力してください。');
+                    return false;
+                }
+            }
+        });
+
+        // 計算完了後にAPI使用量を更新
+        form.addEventListener('htmx:afterRequest', function() {
+            if (typeof loadApiUsage === 'function') {
+                loadApiUsage();
+            }
+        });
+
+        // 初期チェック（少し遅延させてloadApiUsageの完了を待つ）
+        setTimeout(checkApiLimitAndToggleMode, 500);
+    });
 
     // 初期化
     setupICAutocomplete('originIC', 'originSuggestions');

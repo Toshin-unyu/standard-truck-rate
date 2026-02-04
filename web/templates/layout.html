@@ -18,9 +18,84 @@
         <div class="container mx-auto px-4 py-4">
             <div class="flex items-center justify-between">
                 <a href="/" class="text-xl font-bold">STR - トラック運賃簡易予測</a>
+                <!-- API使用量表示 -->
+                <div id="apiUsageDisplay" class="flex items-center gap-2 text-sm">
+                    <span id="apiUsageText">API: ---/---</span>
+                    <div class="w-20 h-2 bg-blue-400 rounded-full overflow-hidden">
+                        <div id="apiUsageBar" class="h-full bg-white transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </header>
+
+    <!-- API上限警告バナー（上限到達時のみ表示） -->
+    <div id="apiLimitBanner" class="hidden bg-red-600 text-white text-center py-2 text-sm">
+        API使用量が上限に達しました。距離・時間の自動取得は停止されています。手入力で計算してください。
+    </div>
+
+    <script>
+        // グローバル変数：API上限到達フラグ
+        window.apiLimitExceeded = false;
+
+        // API使用量を取得・表示
+        async function loadApiUsage() {
+            try {
+                const res = await fetch('/api/usage');
+                const data = await res.json();
+
+                const text = document.getElementById('apiUsageText');
+                const bar = document.getElementById('apiUsageBar');
+                const display = document.getElementById('apiUsageDisplay');
+                const banner = document.getElementById('apiLimitBanner');
+
+                // テキスト更新
+                text.textContent = `API: ${data.request_count.toLocaleString()}/${data.limit_count.toLocaleString()}`;
+
+                // プログレスバー更新
+                const percent = Math.min(data.usage_percent, 100);
+                bar.style.width = percent + '%';
+
+                // 色分け表示
+                display.classList.remove('text-white', 'text-yellow-200', 'text-red-200');
+                bar.classList.remove('bg-white', 'bg-yellow-300', 'bg-red-400');
+
+                if (data.level === 'critical') {
+                    // 危険（95%以上）：赤
+                    display.classList.add('text-red-200');
+                    bar.classList.add('bg-red-400');
+                } else if (data.level === 'warning') {
+                    // 警告（80-94%）：黄
+                    display.classList.add('text-yellow-200');
+                    bar.classList.add('bg-yellow-300');
+                } else {
+                    // 通常（0-79%）：白/緑
+                    display.classList.add('text-white');
+                    bar.classList.add('bg-white');
+                }
+
+                // 上限チェック
+                if (data.remaining <= 0) {
+                    window.apiLimitExceeded = true;
+                    banner.classList.remove('hidden');
+                } else {
+                    window.apiLimitExceeded = false;
+                    banner.classList.add('hidden');
+                }
+
+                // 手入力モード切替（index.htmlで定義されている場合のみ）
+                if (typeof checkApiLimitAndToggleMode === 'function') {
+                    checkApiLimitAndToggleMode();
+                }
+            } catch (err) {
+                console.error('API使用量取得エラー:', err);
+                document.getElementById('apiUsageText').textContent = 'API: 取得失敗';
+            }
+        }
+
+        // ページ読み込み時に実行
+        document.addEventListener('DOMContentLoaded', loadApiUsage);
+    </script>
 
     <!-- メインコンテンツ -->
     <main class="container mx-auto px-4 py-8 flex-grow">
