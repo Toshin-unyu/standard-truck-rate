@@ -29,7 +29,7 @@ func TestCalculateHandler_Calculate(t *testing.T) {
 	renderer := &mockRenderer{}
 	e.Renderer = renderer
 
-	handler := NewCalculateHandler(nil, nil, nil, nil, nil)
+	handler := NewCalculateHandler(nil, nil, nil, nil, nil, nil)
 
 	tests := []struct {
 		name           string
@@ -142,7 +142,7 @@ func TestCalculateHandler_Calculate(t *testing.T) {
 func TestCalculateHandler_CalculateJSON(t *testing.T) {
 	e := echo.New()
 
-	handler := NewCalculateHandler(nil, nil, nil, nil, nil)
+	handler := NewCalculateHandler(nil, nil, nil, nil, nil, nil)
 
 	tests := []struct {
 		name           string
@@ -189,7 +189,7 @@ func TestCalculateHandler_CalculateWithRoute(t *testing.T) {
 	renderer := &mockRenderer{}
 	e.Renderer = renderer
 
-	handler := NewCalculateHandler(nil, nil, nil, nil, nil)
+	handler := NewCalculateHandler(nil, nil, nil, nil, nil, nil)
 
 	tests := []struct {
 		name           string
@@ -198,7 +198,7 @@ func TestCalculateHandler_CalculateWithRoute(t *testing.T) {
 		wantTemplate   string
 	}{
 		{
-			name: "出発地/目的地から運賃計算（東京→大阪）",
+			name: "出発地/目的地から運賃計算（GeocodingClientなしでエラー）",
 			formData: url.Values{
 				"origin":          {"東京都千代田区丸の内1-1-1"},
 				"dest":            {"大阪府大阪市中央区"},
@@ -206,10 +206,10 @@ func TestCalculateHandler_CalculateWithRoute(t *testing.T) {
 				"loading_minutes": {"60"},
 			},
 			wantStatusCode: http.StatusOK,
-			wantTemplate:   "result",
+			wantTemplate:   "error",
 		},
 		{
-			name: "出発地/目的地から運賃計算（東京23区、赤帽地区割増）",
+			name: "出発地/目的地から運賃計算（GeocodingClientなしでエラー2）",
 			formData: url.Values{
 				"origin":          {"東京都新宿区西新宿"},
 				"dest":            {"神奈川県横浜市中区"},
@@ -217,10 +217,10 @@ func TestCalculateHandler_CalculateWithRoute(t *testing.T) {
 				"loading_minutes": {"30"},
 			},
 			wantStatusCode: http.StatusOK,
-			wantTemplate:   "result",
+			wantTemplate:   "error",
 		},
 		{
-			name: "出発地/目的地から運賃計算（大阪市内、深夜割増）",
+			name: "出発地/目的地から運賃計算（GeocodingClientなしでエラー3）",
 			formData: url.Values{
 				"origin":          {"大阪府大阪市北区梅田"},
 				"dest":            {"京都府京都市"},
@@ -229,7 +229,7 @@ func TestCalculateHandler_CalculateWithRoute(t *testing.T) {
 				"is_night":        {"true"},
 			},
 			wantStatusCode: http.StatusOK,
-			wantTemplate:   "result",
+			wantTemplate:   "error",
 		},
 		{
 			name: "出発地が未入力の場合エラー",
