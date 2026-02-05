@@ -2,6 +2,7 @@ package handler
 
 import (
 	"database/sql"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -300,8 +301,8 @@ func (h *CalculateHandler) parseRequest(c echo.Context) (*CalculateRequest, erro
 
 		if hasManualDistance && hasManualDriving {
 			// 手入力モード：API呼び出しをスキップ
-			// 赤帽地区の判定のみ行う
-			if req.Area == "" {
+			// 赤帽地区の判定（出発地が空でない場合のみ）
+			if req.Area == "" && req.Origin != "" {
 				req.Area = service.ResolveAkabouArea(req.Origin)
 			}
 		} else {
@@ -353,7 +354,9 @@ func (h *CalculateHandler) resolveRouteInfo(req *CalculateRequest) error {
 
 	// キャッシュミス時（API呼び出し時）はAPI使用量をカウントアップ
 	if !result.FromCache && h.apiUsageService != nil {
-		_ = h.apiUsageService.IncrementAndCheck()
+		if err := h.apiUsageService.IncrementAndCheck(); err != nil {
+			log.Printf("API使用量カウントエラー: %v", err)
+		}
 	}
 
 	req.DistanceKm = int(result.Route.DistanceKm)

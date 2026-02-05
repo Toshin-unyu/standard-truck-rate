@@ -279,7 +279,16 @@
                             data.ics.forEach(ic => {
                                 const div = document.createElement('div');
                                 div.className = 'px-3 py-2 cursor-pointer hover:bg-gray-100 border-b last:border-b-0';
-                                div.innerHTML = `<span class="font-medium">${ic.name}</span> <span class="text-sm text-gray-500">${ic.road_name}</span>`;
+                                // XSS対策: innerHTMLではなくDOM APIで要素構築
+                                const nameSpan = document.createElement('span');
+                                nameSpan.className = 'font-medium';
+                                nameSpan.textContent = ic.name;
+                                const roadSpan = document.createElement('span');
+                                roadSpan.className = 'text-sm text-gray-500';
+                                roadSpan.textContent = ic.road_name;
+                                div.appendChild(nameSpan);
+                                div.appendChild(document.createTextNode(' '));
+                                div.appendChild(roadSpan);
                                 div.addEventListener('click', () => {
                                     input.value = ic.name;
                                     suggestions.classList.add('hidden');
@@ -353,9 +362,10 @@
             if (window.apiLimitExceeded) {
                 const distance = document.getElementById('distanceKmInput').value;
                 const driving = document.getElementById('drivingMinutesInput').value;
-                if (!distance || !driving) {
+                const regionCode = document.getElementById('regionCodeInput').value;
+                if (!distance || !driving || !regionCode) {
                     evt.preventDefault();
-                    alert('API上限到達中のため、距離と走行時間を手入力してください。');
+                    alert('API上限到達中のため、距離・走行時間・運輸局を手入力してください。');
                     return false;
                 }
             }
@@ -368,8 +378,8 @@
             }
         });
 
-        // 初期チェック（少し遅延させてloadApiUsageの完了を待つ）
-        setTimeout(checkApiLimitAndToggleMode, 500);
+        // 初期チェックはloadApiUsage()完了後にlayout.htmlで自動実行される
+        // （layout.htmlのloadApiUsage()内でcheckApiLimitAndToggleModeを呼び出し済み）
     });
 
     // 初期化
