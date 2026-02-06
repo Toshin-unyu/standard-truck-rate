@@ -3,6 +3,7 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -33,8 +34,9 @@ func NewJtaSupabaseClient(baseURL, anonKey string) *JtaSupabaseClient {
 // vehicleCode: 車格コード (1-4)
 // distanceKm: 距離 (km)
 func (c *JtaSupabaseClient) GetDistanceFare(regionCode, vehicleCode, distanceKm int) (*model.JtaDistanceFare, error) {
-	// 距離を丸める
-	roundedKm := RoundDistance(distanceKm, regionCode)
+	// 注意: 呼び出し元（distance_fare.go）で既に丸められている場合がある
+	// ここでは丸めずにそのままクエリする
+	roundedKm := distanceKm
 
 	// クエリパラメータを構築
 	endpoint := fmt.Sprintf("%s/rest/v1/fare_rates", c.baseURL)
@@ -62,8 +64,14 @@ func (c *JtaSupabaseClient) GetDistanceFare(regionCode, vehicleCode, distanceKm 
 		return nil, fmt.Errorf("APIエラー: ステータスコード %d", resp.StatusCode)
 	}
 
+	// レスポンスボディを読み取る
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("レスポンス読み取りエラー: %w", err)
+	}
+
 	var fares []model.JtaDistanceFare
-	if err := json.NewDecoder(resp.Body).Decode(&fares); err != nil {
+	if err := json.Unmarshal(body, &fares); err != nil {
 		return nil, fmt.Errorf("JSONデコードエラー: %w", err)
 	}
 
