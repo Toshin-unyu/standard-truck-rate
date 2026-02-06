@@ -324,6 +324,131 @@ func TestAkabouTimeFareResult_Breakdown(t *testing.T) {
 	}
 }
 
+// =============================================================================
+// 付帯料金テスト
+// =============================================================================
+
+func TestAkabouAdditionalFees_WorkFee(t *testing.T) {
+	service := NewAkabouFareService()
+
+	// 作業料金: 30分まで無料、超過15分ごとに550円
+	tests := []struct {
+		name           string
+		workMinutes    int
+		waitingMinutes int
+		wantWorkFee    int
+		wantWaitFee    int
+		wantTotal      int
+	}{
+		// 作業料金のみテスト（待機なし）
+		{"作業0分", 0, 0, 0, 0, 0},
+		{"作業10分（無料内）", 10, 0, 0, 0, 0},
+		{"作業30分（無料上限）", 30, 0, 0, 0, 0},
+		{"作業31分（1分超過→15分単位切り上げ→550円）", 31, 0, 550, 0, 550},
+		{"作業45分（15分超過→1単位→550円）", 45, 0, 550, 0, 550},
+		{"作業46分（16分超過→2単位→1,100円）", 46, 0, 1100, 0, 1100},
+		{"作業60分（30分超過→2単位→1,100円）", 60, 0, 1100, 0, 1100},
+		{"作業90分（60分超過→4単位→2,200円）", 90, 0, 2200, 0, 2200},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := service.CalculateAdditionalFees(tt.workMinutes, tt.waitingMinutes)
+			if result.WorkFee != tt.wantWorkFee {
+				t.Errorf("作業料金: 期待値 %d円, 実際 %d円", tt.wantWorkFee, result.WorkFee)
+			}
+			if result.WaitingFee != tt.wantWaitFee {
+				t.Errorf("待機料金: 期待値 %d円, 実際 %d円", tt.wantWaitFee, result.WaitingFee)
+			}
+			if result.TotalFee != tt.wantTotal {
+				t.Errorf("合計: 期待値 %d円, 実際 %d円", tt.wantTotal, result.TotalFee)
+			}
+		})
+	}
+}
+
+func TestAkabouAdditionalFees_WaitingFee(t *testing.T) {
+	service := NewAkabouFareService()
+
+	// 待機時間料: 30分まで無料、超過30分ごとに1,100円
+	tests := []struct {
+		name           string
+		workMinutes    int
+		waitingMinutes int
+		wantWorkFee    int
+		wantWaitFee    int
+		wantTotal      int
+	}{
+		// 待機料金のみテスト（作業なし）
+		{"待機0分", 0, 0, 0, 0, 0},
+		{"待機10分（無料内）", 0, 10, 0, 0, 0},
+		{"待機30分（無料上限）", 0, 30, 0, 0, 0},
+		{"待機31分（1分超過→30分単位切り上げ→1,100円）", 0, 31, 0, 1100, 1100},
+		{"待機60分（30分超過→1単位→1,100円）", 0, 60, 0, 1100, 1100},
+		{"待機61分（31分超過→2単位→2,200円）", 0, 61, 0, 2200, 2200},
+		{"待機90分（60分超過→2単位→2,200円）", 0, 90, 0, 2200, 2200},
+		{"待機120分（90分超過→3単位→3,300円）", 0, 120, 0, 3300, 3300},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := service.CalculateAdditionalFees(tt.workMinutes, tt.waitingMinutes)
+			if result.WorkFee != tt.wantWorkFee {
+				t.Errorf("作業料金: 期待値 %d円, 実際 %d円", tt.wantWorkFee, result.WorkFee)
+			}
+			if result.WaitingFee != tt.wantWaitFee {
+				t.Errorf("待機料金: 期待値 %d円, 実際 %d円", tt.wantWaitFee, result.WaitingFee)
+			}
+			if result.TotalFee != tt.wantTotal {
+				t.Errorf("合計: 期待値 %d円, 実際 %d円", tt.wantTotal, result.TotalFee)
+			}
+		})
+	}
+}
+
+func TestAkabouAdditionalFees_Combined(t *testing.T) {
+	service := NewAkabouFareService()
+
+	// 作業料金+待機時間料の組み合わせ
+	tests := []struct {
+		name           string
+		workMinutes    int
+		waitingMinutes int
+		wantWorkFee    int
+		wantWaitFee    int
+		wantTotal      int
+	}{
+		{"作業45分+待機60分", 45, 60, 550, 1100, 1650},
+		{"作業60分+待機90分", 60, 90, 1100, 2200, 3300},
+		{"作業30分+待機30分（両方無料内）", 30, 30, 0, 0, 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := service.CalculateAdditionalFees(tt.workMinutes, tt.waitingMinutes)
+			if result.WorkFee != tt.wantWorkFee {
+				t.Errorf("作業料金: 期待値 %d円, 実際 %d円", tt.wantWorkFee, result.WorkFee)
+			}
+			if result.WaitingFee != tt.wantWaitFee {
+				t.Errorf("待機料金: 期待値 %d円, 実際 %d円", tt.wantWaitFee, result.WaitingFee)
+			}
+			if result.TotalFee != tt.wantTotal {
+				t.Errorf("合計: 期待値 %d円, 実際 %d円", tt.wantTotal, result.TotalFee)
+			}
+		})
+	}
+}
+
+func TestAkabouAdditionalFees_NegativeInput(t *testing.T) {
+	service := NewAkabouFareService()
+
+	// 負の入力は0として扱う
+	result := service.CalculateAdditionalFees(-10, -20)
+	if result.WorkFee != 0 || result.WaitingFee != 0 || result.TotalFee != 0 {
+		t.Errorf("負の入力で料金が発生: work=%d, wait=%d, total=%d", result.WorkFee, result.WaitingFee, result.TotalFee)
+	}
+}
+
 // ヘルパー関数
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))

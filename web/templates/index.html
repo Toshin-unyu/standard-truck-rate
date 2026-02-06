@@ -157,6 +157,39 @@
                 </div>
             </details>
 
+            <!-- 赤帽付帯料金（折りたたみ） -->
+            <details class="mb-5 border border-gray-200 rounded-lg">
+                <summary class="px-4 py-3 cursor-pointer bg-gray-50 hover:bg-gray-100 rounded-lg font-medium text-sm text-gray-700 flex items-center justify-between">
+                    <span>赤帽付帯料金オプション</span>
+                    <svg class="w-5 h-5 text-gray-500 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </summary>
+                <div class="p-4 border-t border-gray-200 space-y-4">
+                    <p class="text-xs text-gray-500">※ 車格「軽貨物/赤帽」選択時のみ計算に反映されます</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">作業時間</label>
+                            <div class="relative">
+                                <input type="number" name="work_minutes" min="0" max="9999" value="0"
+                                       class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 pr-10">
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">分</span>
+                            </div>
+                            <p class="text-xs text-gray-400 mt-1">30分まで無料、超過15分ごとに550円</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">待機時間</label>
+                            <div class="relative">
+                                <input type="number" name="waiting_minutes" min="0" max="9999" value="0"
+                                       class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 pr-10">
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">分</span>
+                            </div>
+                            <p class="text-xs text-gray-400 mt-1">30分まで無料、超過30分ごとに1,100円</p>
+                        </div>
+                    </div>
+                </div>
+            </details>
+
             <!-- 詳細オプション（折りたたみ） -->
             <details class="mb-6 border border-gray-200 rounded-lg">
                 <summary class="px-4 py-3 cursor-pointer bg-gray-50 hover:bg-gray-100 rounded-lg font-medium text-sm text-gray-700 flex items-center justify-between">

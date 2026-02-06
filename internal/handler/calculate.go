@@ -79,6 +79,10 @@ type CalculateRequest struct {
 	UseSimpleBaseKm bool   `form:"use_simple_base_km"`
 	Area            string `form:"area"`
 
+	// 赤帽付帯料金パラメータ
+	WorkMinutes    int `form:"work_minutes"`    // 作業時間（分）
+	WaitingMinutes int `form:"waiting_minutes"` // 待機時間（分）
+
 	// 高速道路パラメータ
 	UseHighway bool   `form:"use_highway"` // 高速道路使用
 	OriginIC   string `form:"origin_ic"`   // 乗IC
@@ -143,6 +147,8 @@ func (h *CalculateHandler) Calculate(c echo.Context) error {
 		IsHoliday:       req.IsHoliday,
 		UseSimpleBaseKm: req.UseSimpleBaseKm,
 		Area:            req.Area,
+		WorkMinutes:     req.WorkMinutes,
+		WaitingMinutes:  req.WaitingMinutes,
 	})
 	if err != nil {
 		return c.Render(http.StatusOK, "error", map[string]string{"Error": "運賃計算エラー: " + err.Error()})
@@ -201,6 +207,8 @@ func (h *CalculateHandler) CalculateJSON(c echo.Context) error {
 		IsHoliday:       req.IsHoliday,
 		UseSimpleBaseKm: req.UseSimpleBaseKm,
 		Area:            req.Area,
+		WorkMinutes:     req.WorkMinutes,
+		WaitingMinutes:  req.WaitingMinutes,
 	})
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "運賃計算エラー: " + err.Error()})
@@ -286,6 +294,18 @@ func (h *CalculateHandler) parseRequest(c echo.Context) (*CalculateRequest, erro
 	req.IsHoliday = c.FormValue("is_holiday") == "true"
 	req.UseSimpleBaseKm = c.FormValue("use_simple_base_km") == "true"
 	req.Area = c.FormValue("area")
+
+	// 赤帽付帯料金パラメータ
+	if v := c.FormValue("work_minutes"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			req.WorkMinutes = n
+		}
+	}
+	if v := c.FormValue("waiting_minutes"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			req.WaitingMinutes = n
+		}
+	}
 
 	// 高速道路パラメータ
 	req.UseHighway = c.FormValue("use_highway") == "true"

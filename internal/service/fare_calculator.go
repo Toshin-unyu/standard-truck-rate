@@ -41,7 +41,9 @@ type FareCalculationRequest struct {
 	UseSimpleBaseKm bool // シンプル版基礎走行キロ使用（false=トラ協PDF版）
 
 	// 赤帽用パラメータ
-	Area string // 地区（東京23区、大阪市内など）
+	Area           string // 地区（東京23区、大阪市内など）
+	WorkMinutes    int    // 作業時間（分）- 赤帽付帯料金用
+	WaitingMinutes int    // 待機時間（分）- 赤帽付帯料金用
 }
 
 // FareRanking 運賃ランキング
@@ -60,10 +62,11 @@ type FareComparisonResult struct {
 	DrivingMinutes int // 走行時間（分）
 
 	// 各運賃の計算結果
-	DistanceFareResult   *DistanceFareResult       // 距離制運賃（トラック用）
-	TimeFareResult       *TimeFareResult           // 時間制運賃（トラック用）
-	AkabouDistanceResult *AkabouDistanceFareResult // 赤帽運賃（距離制、軽貨物用）
-	AkabouTimeResult     *AkabouTimeFareResult     // 赤帽運賃（時間制、軽貨物用）
+	DistanceFareResult   *DistanceFareResult        // 距離制運賃（トラック用）
+	TimeFareResult       *TimeFareResult            // 時間制運賃（トラック用）
+	AkabouDistanceResult *AkabouDistanceFareResult  // 赤帽運賃（距離制、軽貨物用）
+	AkabouTimeResult     *AkabouTimeFareResult      // 赤帽運賃（時間制、軽貨物用）
+	AdditionalFees       *AkabouAdditionalFeesResult // 赤帽付帯料金（軽貨物用）
 
 	// 比較・ランキング
 	Rankings     []FareRanking // 金額順ランキング
@@ -108,6 +111,16 @@ func (s *FareCalculatorService) CalculateAll(req *FareCalculationRequest) (*Fare
 			return nil, fmt.Errorf("赤帽時間制運賃計算エラー: %w", err)
 		}
 		result.AkabouTimeResult = akabouTimeResult
+
+		// 付帯料金を計算
+		additionalFees := s.akabouFare.CalculateAdditionalFees(req.WorkMinutes, req.WaitingMinutes)
+		result.AdditionalFees = additionalFees
+
+		// 付帯料金をTotalFareに加算
+		if additionalFees.TotalFee > 0 {
+			result.AkabouDistanceResult.TotalFare += additionalFees.TotalFee
+			result.AkabouTimeResult.TotalFare += additionalFees.TotalFee
+		}
 
 		// ランキングを生成（赤帽のみ）
 		result.Rankings = s.createRankingsForLight(result)

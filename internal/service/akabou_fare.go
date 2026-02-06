@@ -25,6 +25,14 @@ const (
 
 	// 地区割増
 	AkabouAreaSurcharge = 440 // 東京23区・大阪市内
+
+	// 付帯料金
+	AkabouWorkFreeMinutes = 30   // 作業料金無料時間（分）
+	AkabouWorkUnitMinutes = 15   // 作業料金課金単位（分）
+	AkabouWorkFeePerUnit  = 550  // 作業料金（円/15分）
+	AkabouWaitFreeMinutes = 30   // 待機時間無料時間（分）
+	AkabouWaitUnitMinutes = 30   // 待機時間課金単位（分）
+	AkabouWaitFeePerUnit  = 1100 // 待機時間料（円/30分）
 )
 
 // 地区割増対象エリア
@@ -241,6 +249,40 @@ func (s *AkabouFareService) CalculateTimeFare(
 		NightRate:        nightRate,
 		HolidayRate:      holidayRate,
 	}, nil
+}
+
+// AkabouAdditionalFeesResult 赤帽付帯料金計算結果
+type AkabouAdditionalFeesResult struct {
+	WorkMinutes    int // 作業時間（分）
+	WaitingMinutes int // 待機時間（分）
+	WorkFee        int // 作業料金（円）
+	WaitingFee     int // 待機時間料（円）
+	TotalFee       int // 付帯料金合計（円）
+}
+
+// CalculateAdditionalFees 付帯料金を計算
+func (s *AkabouFareService) CalculateAdditionalFees(workMinutes, waitingMinutes int) *AkabouAdditionalFeesResult {
+	result := &AkabouAdditionalFeesResult{
+		WorkMinutes:    workMinutes,
+		WaitingMinutes: waitingMinutes,
+	}
+
+	// 作業料金: 30分まで無料、超過15分ごとに550円（切り上げ）
+	if workMinutes > AkabouWorkFreeMinutes {
+		excessMin := workMinutes - AkabouWorkFreeMinutes
+		units := (excessMin + AkabouWorkUnitMinutes - 1) / AkabouWorkUnitMinutes
+		result.WorkFee = units * AkabouWorkFeePerUnit
+	}
+
+	// 待機時間料: 30分まで無料、超過30分ごとに1,100円（切り上げ）
+	if waitingMinutes > AkabouWaitFreeMinutes {
+		excessMin := waitingMinutes - AkabouWaitFreeMinutes
+		units := (excessMin + AkabouWaitUnitMinutes - 1) / AkabouWaitUnitMinutes
+		result.WaitingFee = units * AkabouWaitFeePerUnit
+	}
+
+	result.TotalFee = result.WorkFee + result.WaitingFee
+	return result
 }
 
 // Breakdown 計算根拠を文字列で返す（距離制）
