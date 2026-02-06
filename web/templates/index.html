@@ -78,7 +78,8 @@
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">車格</label>
-                    <select name="vehicle_code" required
+                    <select name="vehicle_code" id="vehicleCode" required
+                            onchange="toggleAkabouOptions()"
                             class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
                         <option value="0">軽貨物/赤帽</option>
                         <option value="1">小型車（2t）</option>
@@ -157,8 +158,8 @@
                 </div>
             </details>
 
-            <!-- 赤帽付帯料金（折りたたみ） -->
-            <details class="mb-5 border border-gray-200 rounded-lg">
+            <!-- 赤帽付帯料金（軽貨物/赤帽選択時のみ表示） -->
+            <details id="akabouOptions" class="mb-5 border border-gray-200 rounded-lg hidden">
                 <summary class="px-4 py-3 cursor-pointer bg-gray-50 hover:bg-gray-100 rounded-lg font-medium text-sm text-gray-700 flex items-center justify-between">
                     <span>赤帽付帯料金オプション</span>
                     <svg class="w-5 h-5 text-gray-500 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -166,7 +167,6 @@
                     </svg>
                 </summary>
                 <div class="p-4 border-t border-gray-200 space-y-4">
-                    <p class="text-xs text-gray-500">※ 車格「軽貨物/赤帽」選択時のみ計算に反映されます</p>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">作業時間</label>
@@ -279,6 +279,17 @@
 </div>
 
 <script>
+    // 赤帽付帯料金オプションの表示切替（軽貨物/赤帽選択時のみ表示）
+    function toggleAkabouOptions() {
+        const vehicleCode = document.getElementById('vehicleCode').value;
+        const akabouOptions = document.getElementById('akabouOptions');
+        if (vehicleCode === '0') {
+            akabouOptions.classList.remove('hidden');
+        } else {
+            akabouOptions.classList.add('hidden');
+        }
+    }
+
     // 高速道路オプションの表示切替
     function toggleHighwayOptions() {
         const checkbox = document.getElementById('useHighway');
