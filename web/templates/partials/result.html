@@ -1,24 +1,32 @@
 {{define "result"}}
 <div class="space-y-6">
-    <!-- 自動取得情報 -->
+    <!-- 計算根拠 -->
     <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 class="text-base font-medium text-blue-800 mb-2">🔍 自動取得情報</h3>
-        <div class="flex flex-wrap gap-x-6 gap-y-1 text-sm text-blue-700">
-            {{if eq .VehicleCode 0}}
-            <!-- 軽貨物の場合 -->
+        <h3 class="text-base font-medium text-blue-800 mb-2">計算根拠</h3>
+        {{if eq .VehicleCode 0}}
+        <!-- 軽貨物の場合 -->
+        <div class="flex flex-wrap gap-x-6 gap-y-1 text-sm text-blue-700 mb-2">
             <span>車格: <strong>軽貨物/赤帽</strong></span>
-            <span>距離: <strong>{{.AkabouDistanceResult.DistanceKm}}km</strong></span>
-            <span>走行時間: <strong>{{formatDuration .DrivingMinutes}}</strong></span>
+            <span>距離: <strong>{{printf "%.1f" .DistanceKmRaw}}km</strong></span>
             {{if .AkabouDistanceResult.Area}}
             <span>地区: <strong>{{.AkabouDistanceResult.Area}}</strong></span>
             {{end}}
-            {{else}}
-            <!-- 2t以上の場合 -->
-            <span>運輸局: <strong>{{regionName .DistanceFareResult.RegionCode}}</strong></span>
-            <span>距離: <strong>{{.DistanceFareResult.DistanceKm}}km</strong></span>
-            <span>走行時間: <strong>{{formatDuration .TimeFareResult.DrivingMinutes}}</strong></span>
-            {{end}}
         </div>
+        <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-blue-600">
+            <span>走行: {{formatDuration .DrivingMinutes}} + 荷役: {{formatDuration .LoadingMinutes}} = 合計 {{formatDuration (add .DrivingMinutes .LoadingMinutes)}}</span>
+        </div>
+        {{else}}
+        <!-- 2t以上の場合 -->
+        <div class="flex flex-wrap gap-x-6 gap-y-1 text-sm text-blue-700 mb-2">
+            <span>運輸局: <strong>{{regionName .DistanceFareResult.RegionCode}}</strong></span>
+            <span>車格: <strong>{{vehicleName .DistanceFareResult.VehicleCode}}</strong></span>
+            <span>経路距離: <strong>{{printf "%.1f" .DistanceKmRaw}}km</strong> → 計算距離: <strong>{{.DistanceFareResult.RoundedKm}}km</strong></span>
+        </div>
+        <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-blue-600">
+            <span>走行: {{formatDuration .TimeFareResult.DrivingMinutes}} + 荷役: {{formatDuration .LoadingMinutes}} = 合計 {{formatDuration .TimeFareResult.TotalMinutes}} → {{.TimeFareResult.AppliedHours}}時間制適用</span>
+            <span>基礎走行キロ: {{.TimeFareResult.BaseKm}}km → 超過: {{.TimeFareResult.ExcessKm}}km</span>
+        </div>
+        {{end}}
     </div>
 
     <!-- 運賃比較（横並びカラム） -->

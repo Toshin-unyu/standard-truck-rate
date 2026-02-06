@@ -35,6 +35,9 @@ type FareCalculationRequest struct {
 	IsNight     bool // 深夜割増
 	IsHoliday   bool // 休日割増
 
+	// 距離（表示用）
+	DistanceKmRaw float64 // 元距離（km、小数点付き）- Google Maps API取得値
+
 	// 時間制用パラメータ
 	DrivingMinutes  int  // 走行時間（分）- Google Maps API取得値
 	LoadingMinutes  int  // 荷役時間（分）- デフォルト60分
@@ -58,8 +61,10 @@ type FareComparisonResult struct {
 	// 車格コード（0=軽貨物, 1-4=トラック）
 	VehicleCode int
 
-	// 共通情報
-	DrivingMinutes int // 走行時間（分）
+	// 共通情報（計算根拠表示用）
+	DistanceKmRaw  float64 // 元距離（km、小数点付き）
+	DrivingMinutes int     // 走行時間（分）
+	LoadingMinutes int     // 荷役時間（分）
 
 	// 各運賃の計算結果
 	DistanceFareResult   *DistanceFareResult        // 距離制運賃（トラック用）
@@ -82,7 +87,9 @@ const VehicleCodeLight = 0
 func (s *FareCalculatorService) CalculateAll(req *FareCalculationRequest) (*FareComparisonResult, error) {
 	result := &FareComparisonResult{
 		VehicleCode:    req.VehicleCode,
+		DistanceKmRaw:  req.DistanceKmRaw,
 		DrivingMinutes: req.DrivingMinutes,
+		LoadingMinutes: req.LoadingMinutes,
 	}
 
 	// 軽貨物（赤帽）の場合

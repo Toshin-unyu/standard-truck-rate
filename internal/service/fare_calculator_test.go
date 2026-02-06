@@ -491,6 +491,63 @@ func TestFareCalculatorService_AreaSurcharge(t *testing.T) {
 	}
 }
 
+// TestFareCalculatorService_DistanceKmRaw 小数点距離と荷役時間の伝播テスト
+func TestFareCalculatorService_DistanceKmRaw(t *testing.T) {
+	distanceFareService := NewDistanceFareService(&MockFareGetter{})
+	timeFareService := NewTimeFareService(&MockTimeFareGetter{})
+	akabouFareService := NewAkabouFareService()
+
+	calculator := NewFareCalculatorService(distanceFareService, timeFareService, akabouFareService)
+
+	// トラック: DistanceKmRaw と LoadingMinutes が結果に伝播されること
+	req := &FareCalculationRequest{
+		RegionCode:     3,
+		VehicleCode:    3,
+		DistanceKm:     505,
+		DistanceKmRaw:  504.6,
+		DrivingMinutes: 360,
+		LoadingMinutes: 60,
+		IsNight:        false,
+		IsHoliday:      false,
+	}
+
+	result, err := calculator.CalculateAll(req)
+	if err != nil {
+		t.Fatalf("CalculateAll failed: %v", err)
+	}
+
+	if result.DistanceKmRaw != 504.6 {
+		t.Errorf("DistanceKmRaw should be 504.6, got %f", result.DistanceKmRaw)
+	}
+	if result.LoadingMinutes != 60 {
+		t.Errorf("LoadingMinutes should be 60, got %d", result.LoadingMinutes)
+	}
+
+	// 軽貨物でも同様に伝播されること
+	reqLight := &FareCalculationRequest{
+		RegionCode:     3,
+		VehicleCode:    0,
+		DistanceKm:     100,
+		DistanceKmRaw:  99.8,
+		DrivingMinutes: 120,
+		LoadingMinutes: 45,
+		IsNight:        false,
+		IsHoliday:      false,
+	}
+
+	resultLight, err := calculator.CalculateAll(reqLight)
+	if err != nil {
+		t.Fatalf("CalculateAll (light) failed: %v", err)
+	}
+
+	if resultLight.DistanceKmRaw != 99.8 {
+		t.Errorf("DistanceKmRaw should be 99.8, got %f", resultLight.DistanceKmRaw)
+	}
+	if resultLight.LoadingMinutes != 45 {
+		t.Errorf("LoadingMinutes should be 45, got %d", resultLight.LoadingMinutes)
+	}
+}
+
 // containsString 文字列に部分文字列が含まれるか
 func containsString(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsStringHelper(s, substr))

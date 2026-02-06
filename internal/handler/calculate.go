@@ -72,8 +72,9 @@ type CalculateRequest struct {
 	DrivingMinutes int `form:"driving_minutes"`
 
 	// 共通パラメータ
-	VehicleCode     int    `form:"vehicle_code"`
-	LoadingMinutes  int    `form:"loading_minutes"`
+	VehicleCode     int     `form:"vehicle_code"`
+	LoadingMinutes  int     `form:"loading_minutes"`
+	DistanceKmRaw   float64 // 元距離（km、小数点付き）- 表示用
 	IsNight         bool   `form:"is_night"`
 	IsHoliday       bool   `form:"is_holiday"`
 	UseSimpleBaseKm bool   `form:"use_simple_base_km"`
@@ -141,6 +142,7 @@ func (h *CalculateHandler) Calculate(c echo.Context) error {
 		RegionCode:      req.RegionCode,
 		VehicleCode:     req.VehicleCode,
 		DistanceKm:      req.DistanceKm,
+		DistanceKmRaw:   req.DistanceKmRaw,
 		DrivingMinutes:  req.DrivingMinutes,
 		LoadingMinutes:  req.LoadingMinutes,
 		IsNight:         req.IsNight,
@@ -201,6 +203,7 @@ func (h *CalculateHandler) CalculateJSON(c echo.Context) error {
 		RegionCode:      req.RegionCode,
 		VehicleCode:     req.VehicleCode,
 		DistanceKm:      req.DistanceKm,
+		DistanceKmRaw:   req.DistanceKmRaw,
 		DrivingMinutes:  req.DrivingMinutes,
 		LoadingMinutes:  req.LoadingMinutes,
 		IsNight:         req.IsNight,
@@ -271,6 +274,7 @@ func (h *CalculateHandler) parseRequest(c echo.Context) (*CalculateRequest, erro
 	if v := c.FormValue("distance_km"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
 			req.DistanceKm = n
+			req.DistanceKmRaw = float64(n) // 手入力時は整数値をそのまま使用
 		}
 	}
 
@@ -379,6 +383,7 @@ func (h *CalculateHandler) resolveRouteInfo(req *CalculateRequest) error {
 		}
 	}
 
+	req.DistanceKmRaw = result.Route.DistanceKm
 	req.DistanceKm = int(result.Route.DistanceKm)
 	req.DrivingMinutes = result.Route.DurationMin
 
